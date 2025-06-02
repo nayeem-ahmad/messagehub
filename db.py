@@ -1,7 +1,10 @@
 import sqlite3
+import os
+
+DB_FILE = os.path.join("private", "contacts.db")
 
 def init_db():
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     # Add short_name and description to groups table
     c.execute('''

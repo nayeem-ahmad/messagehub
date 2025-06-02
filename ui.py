@@ -14,6 +14,7 @@ import os
 
 SETTINGS_FILE = os.path.join("private", "settings.json")
 COLUMN_WIDTHS_FILE = os.path.join("private", "column_widths.json")
+DB_FILE = os.path.join("private", "contacts.db")
 
 # --- Settings Management ---
 def get_settings():
@@ -152,7 +153,7 @@ def load_sms_campaigns(tree):
     for item in tree.get_children():
         tree.delete(item)
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("""
         CREATE TABLE IF NOT EXISTS sms_campaigns (
@@ -176,7 +177,7 @@ def edit_sms_campaign(tree):
     iid = selected[0]
     old_name, old_message = tree.item(iid, "values")
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT id FROM sms_campaigns WHERE name=?", (old_name,))
     row = c.fetchone()
@@ -204,7 +205,7 @@ def delete_sms_campaign(tree):
     if not messagebox.askyesno("Delete SMS Campaign", f"Are you sure you want to delete campaign '{name}'?"):
         return
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("DELETE FROM sms_campaigns WHERE name=?", (name,))
     c.execute("DELETE FROM sms_campaign_contacts WHERE campaign_id IN (SELECT id FROM sms_campaigns WHERE name=?)", (name,))
@@ -263,7 +264,7 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
     ttk.Label(step2, text="Selected Contacts:").grid(row=1, column=2, columnspan=2, sticky=tk.W, padx=10)
     sel_list = tk.Listbox(step2, selectmode=tk.MULTIPLE, width=40, height=18)
     sel_list.grid(row=2, column=2, columnspan=2, padx=10, pady=5, sticky=tk.N)
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT id, name, email, mobile FROM contacts ORDER BY name")
     all_contacts = c.fetchall()
@@ -289,7 +290,7 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
         for cid in sel_contact_ids:
             sel_list.insert(tk.END, contact_display_map[cid])
     def contact_in_group(cid, group_short_name):
-        conn = sqlite3.connect("contacts.db")
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute("""
             SELECT 1 FROM group_members
@@ -397,7 +398,7 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
             messagebox.showerror("Error", "Campaign name is required!", parent=dialog)
             return
         import sqlite3
-        conn = sqlite3.connect("contacts.db")
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute("""
             CREATE TABLE IF NOT EXISTS sms_campaigns (
@@ -453,7 +454,7 @@ def send_sms_wizard(dialog, send_tree, contact_ids, campaign_name, message, prog
     if not api_key or not sender_id:
         messagebox.showerror("SMS Settings Missing", "Please set SMS API Key and Sender ID in Settings.", parent=dialog)
         return
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute(f"SELECT id, name, email, mobile FROM contacts WHERE id IN ({','.join(['?']*len(contact_ids))})", contact_ids)
     contacts = c.fetchall()
@@ -721,7 +722,7 @@ def show_contacts(parent):
 
 def get_all_group_names():
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT short_name FROM groups ORDER BY short_name")
     groups = [row[0] for row in c.fetchall()]
@@ -732,7 +733,7 @@ def load_contacts_with_checkboxes(tree, insert_with_checkbox, group="All"):
     for item in tree.get_children():
         tree.delete(item)
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     if group == "All":
         c.execute("""
@@ -769,7 +770,7 @@ def add_contact(tree):
         name, email, mobile = dialog.result
         # Add to database and refresh tree
         import sqlite3
-        conn = sqlite3.connect("contacts.db")
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         try:
             c.execute("INSERT INTO contacts (name, email, mobile) VALUES (?, ?, ?)", 
@@ -793,7 +794,7 @@ def delete_contacts(tree):
     if not messagebox.askyesno("Delete Contact(s)", f"Are you sure you want to delete {len(selected)} contact(s)?"):
         return
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     for iid in selected:
         values = tree.item(iid, "values")
@@ -810,7 +811,7 @@ def load_contacts(tree):
 
     # Load from database
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     for row in c.execute("SELECT name, email, mobile FROM contacts"):
         tree.insert("", tk.END, values=row)
@@ -864,7 +865,7 @@ def load_groups(tree):
     for item in tree.get_children():
         tree.delete(item)
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     for row in c.execute("SELECT short_name, name, description FROM groups ORDER BY short_name"):
         tree.insert("", tk.END, values=row)
@@ -876,7 +877,7 @@ def add_group(tree):
     if dialog.result:
         short_name, name, description = dialog.result
         import sqlite3
-        conn = sqlite3.connect("contacts.db")
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         try:
             c.execute("INSERT INTO groups (short_name, name, description) VALUES (?, ?, ?)", (short_name, name, description))
@@ -899,7 +900,7 @@ def edit_group(tree):
     if dialog.result:
         new_short_name, new_name, new_description = dialog.result
         import sqlite3
-        conn = sqlite3.connect("contacts.db")
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         try:
             c.execute("UPDATE groups SET short_name=?, name=?, description=? WHERE short_name=?", (new_short_name, new_name, new_description, old_short_name))
@@ -921,7 +922,7 @@ def delete_group(tree):
     if not messagebox.askyesno("Delete Group", f"Are you sure you want to delete group '{name}'?"):
         return
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("DELETE FROM groups WHERE name=?", (name,))
     c.execute("DELETE FROM group_members WHERE group_id IN (SELECT id FROM groups WHERE name=?)", (name,))
@@ -1044,7 +1045,7 @@ def send_emails_dialog(tree):
             return
         import email_utils
         def send_thread():
-            history_conn = sqlite3.connect("contacts.db")
+            history_conn = sqlite3.connect(DB_FILE)
             hc = history_conn.cursor()
             hc.execute('''CREATE TABLE IF NOT EXISTS email_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1112,7 +1113,7 @@ def show_history_dialog():
     def load_history():
         for item in tree.get_children():
             tree.delete(item)
-        conn = sqlite3.connect("contacts.db")
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         c.execute("CREATE TABLE IF NOT EXISTS email_history (id INTEGER PRIMARY KEY AUTOINCREMENT, timestamp TEXT, subject TEXT, body TEXT, email TEXT, status TEXT)")
         query = search_var.get().strip().lower()
@@ -1143,7 +1144,7 @@ def edit_contact(tree):
     if dialog.result:
         new_name, new_email, new_mobile = dialog.result
         import sqlite3
-        conn = sqlite3.connect("contacts.db")
+        conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         try:
             c.execute("UPDATE contacts SET name=?, email=?, mobile=? WHERE name=? AND email=? AND mobile=?", 
@@ -1175,7 +1176,7 @@ def import_contacts_dialog(tree):
             self.groups_listbox = tk.Listbox(master, selectmode=tk.MULTIPLE, width=40, height=6)
             self.groups_listbox.grid(row=1, column=1, padx=5, pady=10, sticky="w")
             # Populate groups
-            conn = sqlite3.connect("contacts.db")
+            conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
             c.execute("SELECT short_name FROM groups ORDER BY short_name")
             for row in c.fetchall():
@@ -1211,7 +1212,7 @@ def import_contacts_dialog(tree):
     # Normalize columns
     df.columns = [c.lower() for c in df.columns]
     added = 0
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     group_ids = []
     if selected_groups:
@@ -1287,7 +1288,7 @@ def load_campaigns(tree):
     for item in tree.get_children():
         tree.delete(item)
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     for row in c.execute("SELECT name, subject, body FROM campaigns ORDER BY id DESC"):
         tree.insert("", tk.END, values=row)
@@ -1304,7 +1305,7 @@ def edit_campaign(tree):
     iid = selected[0]
     old_name, old_subject, old_body = tree.item(iid, "values")
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT id FROM campaigns WHERE name=?", (old_name,))
     row = c.fetchone()
@@ -1333,7 +1334,7 @@ def delete_campaign(tree):
     if not messagebox.askyesno("Delete Campaign", f"Are you sure you want to delete campaign '{name}'?"):
         return
     import sqlite3
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("DELETE FROM campaigns WHERE name=?", (name,))
     c.execute("DELETE FROM campaign_contacts WHERE campaign_id IN (SELECT id FROM campaigns WHERE name=?)", (name,))
@@ -1355,7 +1356,7 @@ def send_emails_wizard(dialog, send_tree, contact_ids, campaign_name, subject, b
     ses_secret_key = settings.get('ses_secret_key', '')
     ses_region = settings.get('ses_region', '')
     # Get contact info
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute(f"SELECT id, name, email FROM contacts WHERE id IN ({','.join(['?']*len(contact_ids))})", contact_ids)
     contacts = c.fetchall()
