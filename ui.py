@@ -767,21 +767,33 @@ def load_contacts_with_checkboxes(tree, insert_with_checkbox, group="All"):
 def add_contact(tree):
     dialog = AddContactDialog(tree.master)
     if dialog.result:
-        name, email, mobile = dialog.result
-        # Add to database and refresh tree
+        name, email, mobile, selected_groups = dialog.result
         import sqlite3
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         try:
-            c.execute("INSERT INTO contacts (name, email, mobile) VALUES (?, ?, ?)", 
-                     (name, email, mobile))
+            c.execute("INSERT INTO contacts (name, email, mobile) VALUES (?, ?, ?)", (name, email, mobile))
             conn.commit()
-            sn = len(tree.get_children()) + 1
-            tree.insert("", tk.END, values=("", sn, name, email, mobile), tags=("unchecked",))
+            # Get the new contact's id
+            c.execute("SELECT id FROM contacts WHERE email=?", (email,))
+            contact_row = c.fetchone()
+            if contact_row:
+                contact_id = contact_row[0]
+                # Assign groups
+                for g in selected_groups:
+                    c.execute("SELECT id FROM groups WHERE short_name=?", (g,))
+                    group_row = c.fetchone()
+                    if group_row:
+                        group_id = group_row[0]
+                        c.execute("INSERT OR IGNORE INTO group_members (group_id, contact_id) VALUES (?, ?)", (group_id, contact_id))
+            conn.commit()
         except sqlite3.IntegrityError:
             messagebox.showerror("Error", "Email address already exists!")
         finally:
             conn.close()
+        # Refresh the list to show updated group info
+        from ui import show_contacts
+        show_contacts(tree.master.master)
 
 def delete_contacts(tree):
     selected = []
@@ -1137,25 +1149,45 @@ def edit_contact(tree):
         return
     iid = selected[0]
     values = tree.item(iid, "values")
-    # values: (Select, S.No., Name, Email, Mobile)
     old_name, old_email, old_mobile = values[2], values[3], values[4]
+    # Get contact id
+    import sqlite3
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT id FROM contacts WHERE name=? AND email=? AND mobile=?", (old_name, old_email, old_mobile))
+    row = c.fetchone()
+    contact_id = row[0] if row else None
+    conn.close()
     from contact_dialog import AddContactDialog
-    dialog = AddContactDialog(tree.master, name=old_name, email=old_email, mobile=old_mobile)
+    dialog = AddContactDialog(tree.master, name=old_name, email=old_email, mobile=old_mobile, contact_id=contact_id)
     if dialog.result:
-        new_name, new_email, new_mobile = dialog.result
-        import sqlite3
+        new_name, new_email, new_mobile, selected_groups = dialog.result
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         try:
-            c.execute("UPDATE contacts SET name=?, email=?, mobile=? WHERE name=? AND email=? AND mobile=?", 
-                      (new_name, new_email, new_mobile, old_name, old_email, old_mobile))
+            c.execute("UPDATE contacts SET name=?, email=?, mobile=? WHERE name=? AND email=? AND mobile= ?", (new_name, new_email, new_mobile, old_name, old_email, old_mobile))
+            # Update group assignments
+            c.execute("SELECT id FROM contacts WHERE email=?", (new_email,))
+            contact_row = c.fetchone()
+            if contact_row:
+                contact_id = contact_row[0]
+                # Remove old group memberships
+                c.execute("DELETE FROM group_members WHERE contact_id=?", (contact_id,))
+                # Add new group memberships
+                for g in selected_groups:
+                    c.execute("SELECT id FROM groups WHERE short_name=?", (g,))
+                    group_row = c.fetchone()
+                    if group_row:
+                        group_id = group_row[0]
+                        c.execute("INSERT OR IGNORE INTO group_members (group_id, contact_id) VALUES (?, ?)", (group_id, contact_id))
             conn.commit()
-            # Update the row in the treeview
-            tree.item(iid, values=(values[0], values[1], new_name, new_email, new_mobile))
         except sqlite3.IntegrityError:
             messagebox.showerror("Error", "Email address already exists!")
         finally:
             conn.close()
+        # Refresh the list to show updated group info
+        from ui import show_contacts
+        show_contacts(tree.master.master)
 
 # --- Update import_contacts_dialog to assign to groups ---
 def import_contacts_dialog(tree):
