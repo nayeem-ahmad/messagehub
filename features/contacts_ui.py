@@ -3,7 +3,7 @@ from tkinter import ttk, messagebox, simpledialog, filedialog, Toplevel, Listbox
 import sqlite3
 from datetime import datetime
 import pandas as pd
-from contact_dialog import AddContactDialog
+from .contact_dialog import AddContactDialog
 from .common import DB_FILE, load_column_widths, save_column_widths, get_settings, get_all_group_names, apply_striped_rows
 
 
