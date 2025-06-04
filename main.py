@@ -14,7 +14,7 @@ DB_FILE = os.path.join(PRIVATE_DIR, "contacts.db")
 from tkinter import Tk
 import tkinter as tk
 from ui import setup_main_ui
-from db import init_db
+from services.db import init_db
 
 if __name__ == "__main__":
     # Ensure private folder exists
