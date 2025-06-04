@@ -1728,7 +1728,8 @@ def open_email_campaign_wizard(tree, mode="add", campaign=None):
     save_btn.config(command=save_campaign_for_later)
     show_step(0)
 
-def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, body, progress, counter_var, timer_var):
+def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, body, progress, counter_var, timer_var, scroll_to_row=None):
+    """Send an email campaign to the provided contact IDs."""
     import sqlite3, time, threading
     settings = get_settings()
     email_method = settings.get('email_method', 'SMTP').lower()
@@ -1745,6 +1746,13 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
         return
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
+
+    # Query contacts for the provided IDs
+    placeholders = ','.join(['?'] * len(contact_ids))
+    c.execute(f"SELECT id, name, email, mobile FROM contacts WHERE id IN ({placeholders})", contact_ids)
+    contacts = c.fetchall()
+
+    # Ensure history table exists
     c.execute("""
         CREATE TABLE IF NOT EXISTS email_campaign_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -1755,38 +1763,72 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
             error TEXT
         )
     """)
-    # Get campaign_id from campaign_name
+
+    # Resolve campaign_id for history records
     c.execute("SELECT id FROM email_campaigns WHERE name=?", (campaign_name,))
     row = c.fetchone()
     campaign_id = row[0] if row else None
-    for idx, (cid, cname, cemail, cmobile) in enumerate(contacts):
-        scroll_to_row(idx)
-        send_tree.item(send_tree.get_children()[idx], tags=("current",))
-        dialog.update_idletasks()
-        personalized_subject = subject.replace("{{name}}", cname).replace("{{email}}", cemail).replace("{{mobile}}", cmobile)
-        personalized_body = body.replace("{{name}}", cname).replace("{{email}}", cemail).replace("{{mobile}}", cmobile)
-        try:
-            if email_method == 'smtp':
-                smtp_settings = {"server": smtp_server, "port": smtp_port}
-                email_utils.send_email('smtp', smtp_settings, sender, password, cemail, personalized_subject, personalized_body)
-            elif email_method == 'sendgrid':
-                email_utils.send_email('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, cemail, personalized_subject, personalized_body)
-            elif email_method == 'ses':
-                email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, cemail, personalized_subject, personalized_body)
-            send_tree.set(send_tree.get_children()[idx], column="Status", value="✔️")
-            c.execute("INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, '')", (campaign_id, cid, 'Sent'))
-            success += 1
-        except Exception as e:
-            send_tree.set(send_tree.get_children()[idx], column="Status", value=f"❌ {e}")
-            c.execute("INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, ?)", (campaign_id, cid, 'Failed', str(e)))
-            failed += 1
-        counter_var.set(f"Total: {success+failed} | Success: {success} | Failed: {failed}")
-        dialog.update_idletasks()
-        progress['value'] = idx + 1
-        time.sleep(1.5)
-    conn.commit()
-    conn.close()
-    sending[0] = False
+
+    success = 0
+    failed = 0
+    sending = [True]
+    start_time = time.time()
+
+    def update_timer():
+        while sending[0]:
+            elapsed = int(time.time() - start_time)
+            timer_var.set(f"Elapsed: {elapsed}s")
+            dialog.update_idletasks()
+            time.sleep(1)
+
+    def default_scroll(idx):
+        children = send_tree.get_children()
+        if 0 <= idx < len(children):
+            send_tree.see(children[idx])
+            send_tree.selection_set(children[idx])
+
+    scroll = scroll_to_row or default_scroll
+
+    def send_thread():
+        nonlocal success, failed
+        for idx, (cid, cname, cemail, cmobile) in enumerate(contacts):
+            scroll(idx)
+            send_tree.item(send_tree.get_children()[idx], tags=("current",))
+            dialog.update_idletasks()
+            personalized_subject = subject.replace("{{name}}", cname).replace("{{email}}", cemail).replace("{{mobile}}", cmobile)
+            personalized_body = body.replace("{{name}}", cname).replace("{{email}}", cemail).replace("{{mobile}}", cmobile)
+            try:
+                if email_method == 'smtp':
+                    smtp_settings = {"server": smtp_server, "port": smtp_port}
+                    email_utils.send_email('smtp', smtp_settings, sender, password, cemail, personalized_subject, personalized_body)
+                elif email_method == 'sendgrid':
+                    email_utils.send_email('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, cemail, personalized_subject, personalized_body)
+                elif email_method == 'ses':
+                    email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, cemail, personalized_subject, personalized_body)
+                send_tree.set(send_tree.get_children()[idx], column="Status", value="✔️")
+                c.execute(
+                    "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, '')",
+                    (campaign_id, cid, 'Sent')
+                )
+                success += 1
+            except Exception as e:
+                send_tree.set(send_tree.get_children()[idx], column="Status", value=f"❌ {e}")
+                c.execute(
+                    "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, ?)",
+                    (campaign_id, cid, 'Failed', str(e))
+                )
+                failed += 1
+            counter_var.set(f"Total: {success+failed} | Success: {success} | Failed: {failed}")
+            dialog.update_idletasks()
+            progress['value'] = idx + 1
+            time.sleep(1.5)
+
+        conn.commit()
+        conn.close()
+        sending[0] = False
+
+    threading.Thread(target=update_timer, daemon=True).start()
+    threading.Thread(target=send_thread, daemon=True).start()
     # --- Email Campaign History Dialog ---
 def show_email_campaign_history(tree):
     import tkinter as tk
