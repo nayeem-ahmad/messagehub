@@ -1319,7 +1319,7 @@ def show_email_campaigns(parent):
     edit_btn.pack(side=tk.LEFT, padx=2)
     delete_btn = ttk.Button(btn_group, text="Delete Email Campaign", command=lambda: delete_email_campaign(email_tree))
     delete_btn.pack(side=tk.LEFT, padx=2)
-    send_btn = ttk.Button(btn_group, text="Send Email Campaign", command=lambda: send_email_campaign(email_tree))
+    send_btn = ttk.Button(btn_group, text="Send Email Campaign", command=lambda: send_selected_email_campaign(email_tree))
     send_btn.pack(side=tk.LEFT, padx=2)
     history_btn = ttk.Button(toolbar, text="History", command=lambda: show_email_campaign_history(email_tree))
     history_btn.pack(side=tk.RIGHT, padx=5)
@@ -1381,6 +1381,33 @@ def edit_email_campaign(tree):
         'name': old_name,
         'subject': old_subject,
         'body': old_body,
+        'contact_ids': contact_ids
+    })
+
+def send_selected_email_campaign(tree):
+    selected = tree.selection()
+    if not selected or len(selected) != 1:
+        messagebox.showinfo("Send Email Campaign", "Please select exactly one campaign to send.")
+        return
+    iid = selected[0]
+    name, subject, body = tree.item(iid, "values")
+    import sqlite3
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT id FROM email_campaigns WHERE name=?", (name,))
+    row = c.fetchone()
+    if not row:
+        conn.close()
+        return
+    campaign_id = row[0]
+    c.execute("SELECT contact_id FROM email_campaign_contacts WHERE campaign_id=?", (campaign_id,))
+    contact_ids = [r[0] for r in c.fetchall()]
+    conn.close()
+    open_email_campaign_wizard(tree, mode="edit", campaign={
+        'id': campaign_id,
+        'name': name,
+        'subject': subject,
+        'body': body,
         'contact_ids': contact_ids
     })
 
