@@ -80,7 +80,7 @@ def open_settings_dialog(parent):
         dialog.destroy()
     btn_frame = ttk.Frame(dialog)
     btn_frame.grid(row=row_idx, column=1, pady=15, sticky=tk.E)
-    ttk.Button(btn_frame, text="Save", command=on_save).pack(side=tk.LEFT, padx=5)
-    ttk.Button(btn_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
+    ttk.Button(btn_frame, text="💾 Save", command=on_save).pack(side=tk.LEFT, padx=5)
+    ttk.Button(btn_frame, text="❌ Cancel", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
     center_window(dialog, 800, 700)
 

@@ -17,11 +17,11 @@ def show_sms_campaigns(parent):
     toolbar.pack(fill=tk.X, pady=(0, 10))
     btn_group = ttk.Frame(toolbar)
     btn_group.pack(side=tk.LEFT)
-    add_btn = ttk.Button(btn_group, text="Add SMS Campaign", command=lambda: add_sms_campaign(sms_tree))
+    add_btn = ttk.Button(btn_group, text="➕ Add SMS Campaign", command=lambda: add_sms_campaign(sms_tree))
     add_btn.pack(side=tk.LEFT, padx=(0, 2))
-    edit_btn = ttk.Button(btn_group, text="Edit SMS Campaign", command=lambda: edit_sms_campaign(sms_tree))
+    edit_btn = ttk.Button(btn_group, text="✏️ Edit SMS Campaign", command=lambda: edit_sms_campaign(sms_tree))
     edit_btn.pack(side=tk.LEFT, padx=2)
-    delete_btn = ttk.Button(btn_group, text="Delete SMS Campaign", command=lambda: delete_sms_campaign(sms_tree))
+    delete_btn = ttk.Button(btn_group, text="🗑️ Delete SMS Campaign", command=lambda: delete_sms_campaign(sms_tree))
     delete_btn.pack(side=tk.LEFT, padx=2)
 
     # SMS Campaigns list
@@ -253,9 +253,9 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
     # Navigation buttons
     nav_frame = ttk.Frame(dialog)
     nav_frame.pack(fill=tk.X, pady=10)
-    prev_btn = ttk.Button(nav_frame, text="<< Previous")
-    next_btn = ttk.Button(nav_frame, text="Next >>")
-    save_btn = ttk.Button(nav_frame, text="Save for Later")
+    prev_btn = ttk.Button(nav_frame, text="⬅️ Previous")
+    next_btn = ttk.Button(nav_frame, text="Next ➡️")
+    save_btn = ttk.Button(nav_frame, text="💾 Save for Later")
     prev_btn.pack(side=tk.LEFT, padx=10)
     next_btn.pack(side=tk.RIGHT, padx=10)
     save_btn.pack(side=tk.RIGHT, padx=10)
@@ -279,7 +279,7 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
             timer_var.set("Elapsed: 0s")
             next_btn.config(text="Send SMS")
         else:
-            next_btn.config(text="Next >>")
+            next_btn.config(text="Next ➡️")
     def go_next():
         idx = current_step[0]
         if idx == 0:

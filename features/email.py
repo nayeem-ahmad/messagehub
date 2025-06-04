@@ -16,15 +16,15 @@ def show_email_campaigns(parent):
     toolbar.pack(fill=tk.X, pady=(0, 10))
     btn_group = ttk.Frame(toolbar)
     btn_group.pack(side=tk.LEFT)
-    add_btn = ttk.Button(btn_group, text="Add Email Campaign", command=lambda: add_email_campaign(email_tree))
+    add_btn = ttk.Button(btn_group, text="➕ Add Email Campaign", command=lambda: add_email_campaign(email_tree))
     add_btn.pack(side=tk.LEFT, padx=(0, 2))
-    edit_btn = ttk.Button(btn_group, text="Edit Email Campaign", command=lambda: edit_email_campaign(email_tree))
+    edit_btn = ttk.Button(btn_group, text="✏️ Edit Email Campaign", command=lambda: edit_email_campaign(email_tree))
     edit_btn.pack(side=tk.LEFT, padx=2)
-    delete_btn = ttk.Button(btn_group, text="Delete Email Campaign", command=lambda: delete_email_campaign(email_tree))
+    delete_btn = ttk.Button(btn_group, text="🗑️ Delete Email Campaign", command=lambda: delete_email_campaign(email_tree))
     delete_btn.pack(side=tk.LEFT, padx=2)
-    send_btn = ttk.Button(btn_group, text="Send Email Campaign", command=lambda: send_selected_email_campaign(email_tree))
+    send_btn = ttk.Button(btn_group, text="✉️ Send Email Campaign", command=lambda: send_selected_email_campaign(email_tree))
     send_btn.pack(side=tk.LEFT, padx=2)
-    history_btn = ttk.Button(toolbar, text="History", command=lambda: show_email_campaign_history(email_tree))
+    history_btn = ttk.Button(toolbar, text="📜 History", command=lambda: show_email_campaign_history(email_tree))
     history_btn.pack(side=tk.RIGHT, padx=5)
     columns = ("Name", "Subject", "Body")
     email_frame = ttk.Frame(parent)
@@ -281,9 +281,9 @@ def open_email_campaign_wizard(tree, mode="add", campaign=None):
     # Navigation buttons
     nav_frame = ttk.Frame(dialog)
     nav_frame.pack(fill=tk.X, pady=10)
-    prev_btn = ttk.Button(nav_frame, text="<< Previous")
-    next_btn = ttk.Button(nav_frame, text="Next >>")
-    save_btn = ttk.Button(nav_frame, text="Save for Later")
+    prev_btn = ttk.Button(nav_frame, text="⬅️ Previous")
+    next_btn = ttk.Button(nav_frame, text="Next ➡️")
+    save_btn = ttk.Button(nav_frame, text="💾 Save for Later")
     prev_btn.pack(side=tk.LEFT, padx=10)
     next_btn.pack(side=tk.RIGHT, padx=10)
     save_btn.pack(side=tk.RIGHT, padx=10)
@@ -310,7 +310,7 @@ def open_email_campaign_wizard(tree, mode="add", campaign=None):
             timer_var.set("Elapsed: 0s")
             next_btn.config(text="Send Emails")
         else:
-            next_btn.config(text="Next >>")
+            next_btn.config(text="Next ➡️")
     def go_next():
         idx = current_step[0]
         if idx == 0:

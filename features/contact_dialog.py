@@ -63,8 +63,8 @@ class AddContactDialog:
         button_frame = ttk.Frame(self.dialog)
         button_frame.pack(pady=20)
         
-        ttk.Button(button_frame, text="Save", command=self.save).pack(side=tk.LEFT, padx=5)
-        ttk.Button(button_frame, text="Cancel", command=self.cancel).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="💾 Save", command=self.save).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="❌ Cancel", command=self.cancel).pack(side=tk.LEFT, padx=5)
         
         # Wait for the dialog to close
         self.dialog.wait_window()
