@@ -20,6 +20,15 @@ def show_history_dialog():
         tree.heading(col, text=col)
         tree.column(col, width=150)
     tree.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+    count_var = tk.StringVar(value="Total: 0 | Selected: 0")
+    ttk.Label(hist_win, textvariable=count_var).pack(anchor="w", padx=10, pady=(0,5))
+
+    def update_counts(event=None):
+        total = len(tree.get_children())
+        selected = len(tree.selection())
+        count_var.set(f"Total: {total} | Selected: {selected}")
+
+    tree.bind("<<TreeviewSelect>>", update_counts)
 
     def load_history():
         for item in tree.get_children():
@@ -38,6 +47,7 @@ def show_history_dialog():
             tree.insert("", tk.END, values=row)
         apply_striped_rows(tree)
         conn.close()
+        update_counts()
 
     search_entry.bind("<KeyRelease>", lambda e: load_history())
     load_history()

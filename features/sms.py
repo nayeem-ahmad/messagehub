@@ -37,7 +37,19 @@ def show_sms_campaigns(parent):
     scrollbar = ttk.Scrollbar(sms_frame, orient=tk.VERTICAL, command=sms_tree.yview)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     sms_tree.configure(yscrollcommand=scrollbar.set)
+    count_var = tk.StringVar(value="Total: 0 | Selected: 0")
+    count_label = ttk.Label(parent, textvariable=count_var)
+    count_label.pack(anchor="w", pady=(5,0))
+
+    def update_counts(event=None):
+        total = len(sms_tree.get_children())
+        selected = len(sms_tree.selection())
+        count_var.set(f"Total: {total} | Selected: {selected}")
+
+    sms_tree.update_counts = update_counts
     load_sms_campaigns(sms_tree)
+    update_counts()
+    sms_tree.bind("<<TreeviewSelect>>", update_counts)
     def on_column_resize(event):
         pass  # Optionally implement column width persistence
     sms_tree.bind("<ButtonRelease-1>", on_column_resize)
@@ -60,6 +72,8 @@ def load_sms_campaigns(tree):
         tree.insert("", tk.END, values=row)
     conn.close()
     apply_striped_rows(tree)
+    if hasattr(tree, 'update_counts'):
+        tree.update_counts()
 
 def add_sms_campaign(tree):
     open_sms_campaign_wizard(tree, mode="add")

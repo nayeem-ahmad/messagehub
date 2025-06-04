@@ -47,6 +47,7 @@ def show_contacts(parent):
                 tree.set(iid, "Select", "✔")
         update_select_btn()
         apply_striped_rows(tree)
+        update_counts()
 
     def update_select_btn():
         selected = tree.selection()
@@ -98,6 +99,17 @@ def show_contacts(parent):
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     tree.configure(yscrollcommand=scrollbar.set)
 
+    # Row count label
+    count_var = tk.StringVar(value="Total: 0 | Selected: 0")
+    count_label = ttk.Label(parent, textvariable=count_var)
+    count_label.pack(anchor="w", pady=(5, 0))
+
+    def update_counts(event=None):
+        total = len(tree.get_children())
+        selected = len([iid for iid in tree.get_children()
+                        if "checked" in tree.item(iid, "tags")])
+        count_var.set(f"Total: {total} | Selected: {selected}")
+
     # Add checkboxes and serial number to each row
     def insert_with_checkbox(values, sn):
         iid = tree.insert("", tk.END, values=("", sn) + values)
@@ -107,9 +119,11 @@ def show_contacts(parent):
 
     # expose loader so other functions can refresh correctly
     tree.insert_with_checkbox = insert_with_checkbox
+    tree.update_counts = update_counts
 
     # Load contacts
     load_contacts_with_checkboxes(tree, insert_with_checkbox, group="All")
+    update_counts()
 
     # Checkbox click handler
     def on_treeview_click(event):
@@ -128,6 +142,7 @@ def show_contacts(parent):
                         tree.set(row, "Select", "✔")
                     update_select_btn()
                     apply_striped_rows(tree)
+                    update_counts()
     tree.bind("<Button-1>", on_treeview_click)
     tree.bind("<<TreeviewSelect>>", lambda e: update_select_btn())
 
@@ -170,6 +185,8 @@ def load_contacts_with_checkboxes(tree, insert_with_checkbox, group="All"):
         # row: (id, name, email, mobile, groupnames)
         insert_with_checkbox((row[1], row[2], row[3], row[4] or ""), idx)
     apply_striped_rows(tree)
+    if hasattr(tree, 'update_counts'):
+        tree.update_counts()
 
 def add_contact(tree):
     dialog = AddContactDialog(tree.master)
@@ -200,6 +217,8 @@ def add_contact(tree):
             sn = len(tree.get_children()) + 1
             tree.insert("", tk.END, values=("", sn, name, email, mobile, groupnames), tags=("unchecked",))
             apply_striped_rows(tree)
+            if hasattr(tree, 'update_counts'):
+                tree.update_counts()
         except sqlite3.IntegrityError:
             messagebox.showerror("Error", "Email address already exists!")
         finally:
@@ -275,6 +294,8 @@ def delete_contacts(tree):
     conn.commit()
     conn.close()
     apply_striped_rows(tree)
+    if hasattr(tree, 'update_counts'):
+        tree.update_counts()
 
 def load_contacts(tree):
     # Clear existing items
@@ -328,11 +349,23 @@ def show_groups(parent):
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     groups_tree.configure(yscrollcommand=scrollbar.set)
 
+    count_var_g = tk.StringVar(value="Total: 0 | Selected: 0")
+    count_label_g = ttk.Label(parent, textvariable=count_var_g)
+    count_label_g.pack(anchor="w", pady=(5, 0))
+
+    def update_group_counts(event=None):
+        total = len(groups_tree.get_children())
+        selected = len(groups_tree.selection())
+        count_var_g.set(f"Total: {total} | Selected: {selected}")
+
+    groups_tree.update_counts = update_group_counts
     load_groups(groups_tree)
+    update_group_counts()
 
     def on_column_resize(event):
         save_column_widths("groups", groups_tree)
     groups_tree.bind("<ButtonRelease-1>", on_column_resize)
+    groups_tree.bind("<<TreeviewSelect>>", update_group_counts)
 
 def load_groups(tree):
     for item in tree.get_children():
@@ -344,6 +377,8 @@ def load_groups(tree):
         tree.insert("", tk.END, values=row)
     conn.close()
     apply_striped_rows(tree)
+    if hasattr(tree, 'update_counts'):
+        tree.update_counts()
 
 def add_group(tree):
     from tkinter import simpledialog, messagebox
