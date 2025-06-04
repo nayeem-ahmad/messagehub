@@ -269,8 +269,13 @@ def delete_contacts(tree):
     c = conn.cursor()
     for iid in selected:
         values = tree.item(iid, "values")
-        name, email, mobile = values[1], values[2], values[3]
-        c.execute("DELETE FROM contacts WHERE name=? AND email=? AND mobile=?", (name, email, mobile))
+        # values layout: (Select, S.No., Name, Email, Mobile, Groups)
+        # indexes 2,3,4 correspond to name, email and mobile respectively
+        name, email, mobile = values[2], values[3], values[4]
+        c.execute(
+            "DELETE FROM contacts WHERE name=? AND email=? AND mobile=?",
+            (name, email, mobile),
+        )
         tree.delete(iid)
     conn.commit()
     conn.close()
