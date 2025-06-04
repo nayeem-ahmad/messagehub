@@ -37,7 +37,19 @@ def show_email_campaigns(parent):
     scrollbar = ttk.Scrollbar(email_frame, orient=tk.VERTICAL, command=email_tree.yview)
     scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
     email_tree.configure(yscrollcommand=scrollbar.set)
+    count_var = tk.StringVar(value="Total: 0 | Selected: 0")
+    count_label = ttk.Label(parent, textvariable=count_var)
+    count_label.pack(anchor="w", pady=(5, 0))
+
+    def update_counts(event=None):
+        total = len(email_tree.get_children())
+        selected = len(email_tree.selection())
+        count_var.set(f"Total: {total} | Selected: {selected}")
+
+    email_tree.update_counts = update_counts
     load_email_campaigns(email_tree)
+    update_counts()
+    email_tree.bind("<<TreeviewSelect>>", update_counts)
 
 def load_email_campaigns(tree):
     for item in tree.get_children():
@@ -57,6 +69,8 @@ def load_email_campaigns(tree):
         tree.insert("", tk.END, values=row)
     conn.close()
     apply_striped_rows(tree)
+    if hasattr(tree, 'update_counts'):
+        tree.update_counts()
 
 def add_email_campaign(tree):
     open_email_campaign_wizard(tree, mode="add")
@@ -498,6 +512,15 @@ def show_email_campaign_history(tree):
         treeview.heading(col, text=col)
         treeview.column(col, width=150)
     treeview.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+    count_var = tk.StringVar(value="Total: 0 | Selected: 0")
+    ttk.Label(hist_win, textvariable=count_var).pack(anchor="w", padx=10, pady=(0,5))
+
+    def update_counts(event=None):
+        total = len(treeview.get_children())
+        selected = len(treeview.selection())
+        count_var.set(f"Total: {total} | Selected: {selected}")
+
+    treeview.bind("<<TreeviewSelect>>", update_counts)
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("""
@@ -520,4 +543,5 @@ def show_email_campaign_history(tree):
     for row in c.fetchall():
         treeview.insert("", tk.END, values=row)
     apply_striped_rows(treeview)
+    update_counts()
 
