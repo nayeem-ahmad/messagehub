@@ -1,6 +1,5 @@
 import sqlite3
 import pandas as pd
-import numpy as np
 
 def import_contacts_from_csv(filename):
     data = pd.read_csv(filename)
