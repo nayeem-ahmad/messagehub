@@ -862,6 +862,62 @@ def add_contact(tree):
         finally:
             conn.close()
 
+def edit_contact(tree):
+    selected = tree.selection()
+    if not selected or len(selected) != 1:
+        messagebox.showinfo("Edit Contact", "Please select exactly one contact to edit.")
+        return
+    iid = selected[0]
+    values = tree.item(iid, "values")
+    sn = values[1]
+    name = values[2]
+    email = values[3]
+    mobile = values[4]
+    import sqlite3, inspect
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT id FROM contacts WHERE email=?", (email,))
+    row = c.fetchone()
+    contact_id = row[0] if row else None
+    conn.close()
+    dialog = AddContactDialog(tree.master, name=name, email=email, mobile=mobile, contact_id=contact_id)
+    if dialog.result and contact_id is not None:
+        new_name, new_email, new_mobile, selected_groups = dialog.result
+        conn = sqlite3.connect(DB_FILE)
+        c = conn.cursor()
+        try:
+            c.execute("UPDATE contacts SET name=?, email=?, mobile=? WHERE id=?", (new_name, new_email, new_mobile, contact_id))
+            c.execute("DELETE FROM group_members WHERE contact_id=?", (contact_id,))
+            for group_name in selected_groups:
+                c.execute("SELECT id FROM groups WHERE short_name=?", (group_name,))
+                grp_row = c.fetchone()
+                if grp_row:
+                    group_id = grp_row[0]
+                    c.execute("INSERT OR IGNORE INTO group_members (group_id, contact_id) VALUES (?, ?)", (group_id, contact_id))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            messagebox.showerror("Error", "Email address already exists!")
+        finally:
+            conn.close()
+        try:
+            for frame_info in inspect.stack():
+                local_vars = frame_info.frame.f_locals
+                if 'insert_with_checkbox' in local_vars:
+                    load_contacts_with_checkboxes(tree, local_vars['insert_with_checkbox'], group='All')
+                    break
+            else:
+                parent = tree.master
+                while parent and not hasattr(parent, 'winfo_children'):
+                    parent = getattr(parent, 'master', None)
+                if parent:
+                    show_contacts(parent)
+        except Exception:
+            parent = tree.master
+            while parent and not hasattr(parent, 'winfo_children'):
+                parent = getattr(parent, 'master', None)
+            if parent:
+                show_contacts(parent)
+
 def delete_contacts(tree):
     selected = []
     for iid in tree.get_children():
