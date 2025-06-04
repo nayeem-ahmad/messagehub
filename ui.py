@@ -387,21 +387,12 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
                 return
             show_step(2)
         elif idx == 2:
-            # Inline the send_email_campaign_wizard logic here
-            import sqlite3, time, threading
-            import email_utils
+            import sqlite3, time, threading, requests
             settings = get_settings()
-            email_method = settings.get('email_method', 'SMTP').lower()
-            sender = settings.get('sender_email', '')
-            password = settings.get('sender_pwd', '')
-            smtp_server = settings.get('smtp_server', 'smtp.gmail.com')
-            smtp_port = int(settings.get('smtp_port', '587'))
-            sendgrid_api_key = settings.get('sendgrid_api_key', '')
-            ses_access_key = settings.get('ses_access_key', '')
-            ses_secret_key = settings.get('ses_secret_key', '')
-            ses_region = settings.get('ses_region', '')
-            if not sender:
-                messagebox.showerror("Email Settings Missing", "Sender email not set in settings.", parent=dialog)
+            api_key = settings.get('sms_api_key', '')
+            sender_id = settings.get('sms_sender_id', '')
+            if not api_key or not sender_id:
+                messagebox.showerror("SMS Settings Missing", "Please set SMS API Key and Sender ID in Settings.", parent=dialog)
                 return
             conn = sqlite3.connect(DB_FILE)
             c = conn.cursor()
@@ -425,24 +416,31 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
                     send_tree.selection_set(children[idx])
             def send_thread():
                 nonlocal success, failed
+                base_url = "http://bulksmsbd.net/api/smsapi"
                 for idx, (cid, cname, cemail, cmobile) in enumerate(contacts):
                     scroll_to_row(idx)
                     send_tree.item(send_tree.get_children()[idx], tags=("current",))
                     dialog.update_idletasks()
-                    personalized_subject = subject_var.get().replace("{{name}}", cname).replace("{{email}}", cemail).replace("{{mobile}}", cmobile)
-                    personalized_body = body_text.get("1.0", tk.END).replace("{{name}}", cname).replace("{{email}}", cemail).replace("{{mobile}}", cmobile)
+                    personalized_msg = message_text.get("1.0", tk.END).replace("{{name}}", cname).replace("{{email}}", cemail).replace("{{mobile}}", cmobile)
+                    params = {
+                        "api_key": api_key,
+                        "type": "text",
+                        "number": cmobile,
+                        "senderid": sender_id,
+                        "message": personalized_msg
+                    }
                     try:
-                        if email_method == 'smtp':
-                            smtp_settings = {"server": smtp_server, "port": smtp_port}
-                            email_utils.send_email('smtp', smtp_settings, sender, password, cemail, personalized_subject, personalized_body)
-                        elif email_method == 'sendgrid':
-                            email_utils.send_email('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, cemail, personalized_subject, personalized_body)
-                        elif email_method == 'ses':
-                            email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, cemail, personalized_subject, personalized_body)
-                        send_tree.set(send_tree.get_children()[idx], column="Status", value="✔️")
-                        success += 1
+                        resp = requests.get(base_url, params=params, timeout=10)
+                        print(f"SMS API response for {cmobile}: {resp.status_code} {resp.text}")
+                        if resp.status_code == 200 and ("SMS Send Success" in resp.text or 'success' in resp.text.lower()):
+                            send_tree.set(send_tree.get_children()[idx], column="Status", value="✔️")
+                            success += 1
+                        else:
+                            send_tree.set(send_tree.get_children()[idx], column="Status", value="❌")
+                            failed += 1
                     except Exception as e:
-                        send_tree.set(send_tree.get_children()[idx], column="Status", value=f"❌ {e}")
+                        print(f"SMS API error for {cmobile}: {e}")
+                        send_tree.set(send_tree.get_children()[idx], column="Status", value="❌")
                         failed += 1
                     counter_var.set(f"Total: {success+failed} | Success: {success} | Failed: {failed}")
                     dialog.update_idletasks()
