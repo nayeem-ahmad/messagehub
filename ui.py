@@ -1174,7 +1174,7 @@ def import_contacts_dialog(tree):
             conn.commit()
             conn.close()
         messagebox.showinfo("Import Contacts", f"Imported {imported} contacts from CSV.")
-        # Refresh contacts list
+        # Always refresh contacts list using loader to ensure correct columns
         try:
             import inspect
             for frame_info in inspect.stack():
@@ -1183,9 +1183,19 @@ def import_contacts_dialog(tree):
                     load_contacts_with_checkboxes(tree, local_vars['insert_with_checkbox'], group="All")
                     break
             else:
-                load_contacts(tree)
+                # Fallback: reload via show_contacts if loader not found
+                parent = tree.master
+                while parent and not hasattr(parent, 'winfo_children'):
+                    parent = getattr(parent, 'master', None)
+                if parent:
+                    show_contacts(parent)
         except Exception:
-            load_contacts(tree)
+            # Fallback: reload via show_contacts
+            parent = tree.master
+            while parent and not hasattr(parent, 'winfo_children'):
+                parent = getattr(parent, 'master', None)
+            if parent:
+                show_contacts(parent)
     except Exception as e:
         messagebox.showerror("Import Contacts", f"Failed to import contacts: {e}")
 
