@@ -1,4 +1,4 @@
-# NaCaZo Emailer
+# NaCaZo MessageHub
 
 A Python/Tkinter-based campaign manager for sending Email and SMS campaigns to your contacts. Supports SMTP, SendGrid, and Amazon SES for email, and bulksmsbd.net for SMS.
 

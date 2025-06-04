@@ -34,7 +34,7 @@ if __name__ == "__main__":
     # Always initialize the database (creates tables if missing)
     init_db()
     root = Tk()
-    root.title("NaCaZo Emailer")
+    root.title("NaCaZo MessageHub")
     # Set window size and center it
     window_width = 1024
     screen_width = root.winfo_screenwidth()

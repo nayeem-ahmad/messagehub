@@ -1,6 +1,6 @@
 build_exe.ps1
 installer.iss
-NaCaZoEmailer.spec
+NaCaZoMessageHub.spec
 __pycache__/
 # Ignore everything in private, build, and dist folders
 private/
