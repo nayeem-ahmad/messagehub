@@ -4,8 +4,8 @@ import sqlite3
 import time
 import threading
 from datetime import datetime
-import email_utils
 from .common import DB_FILE, get_settings, center_window, get_all_group_names, apply_striped_rows
+from services import email_utils
 
 
 def show_email_campaigns(parent):

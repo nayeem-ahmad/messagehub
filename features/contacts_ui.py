@@ -7,6 +7,7 @@ from contact_dialog import AddContactDialog
 from .common import DB_FILE, load_column_widths, save_column_widths, get_settings, get_all_group_names, apply_striped_rows
 
 
+
 def show_contacts(parent):
     # Clear existing content
     for widget in parent.winfo_children():
@@ -516,7 +517,7 @@ def send_emails_dialog(tree):
             status_var.set("Amazon SES credentials missing in Settings.")
             send_btn.config(state=tk.NORMAL)
             return
-        import email_utils
+        from services import email_utils
         def send_thread():
             history_conn = sqlite3.connect(DB_FILE)
             hc = history_conn.cursor()
@@ -566,7 +567,7 @@ def send_emails_dialog(tree):
 
 def import_contacts_dialog(tree):
     from tkinter import filedialog, messagebox, simpledialog, Toplevel, Listbox, MULTIPLE, Button, Label, END
-    from contacts import import_contacts_from_csv
+    from services.contacts import import_contacts_from_csv
     import sqlite3
     # Step 1: File selection
     filename = filedialog.askopenfilename(
