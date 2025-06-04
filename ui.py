@@ -1098,8 +1098,8 @@ class GroupDialog(simpledialog.Dialog):
     def show(self):
         if not self._centered:
             self._centered = True
-            self.dialog.update_idletasks()
-            center_window(self.dialog, 400, 250)
+            self.update_idletasks()
+            center_window(self, 400, 250)
 
 # --- Send Emails Dialog ---
 def send_emails_dialog(tree):
