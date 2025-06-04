@@ -27,10 +27,9 @@ python -m venv .venv
 ```powershell
 pip install -r requirements.txt
 ```
-If `requirements.txt` is missing, install manually:
-```powershell
-pip install requests boto3
-```
+The `requirements.txt` file lists the external libraries used by the project
+(pandas, numpy, requests, boto3). Install from it to ensure all dependencies are
+available.
 
 4. **Move/copy your `private/` folder**
 - The `private/` folder contains your credentials, settings, and CSV/contact data. Copy it from your backup or previous install if needed.
