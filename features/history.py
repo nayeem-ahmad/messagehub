@@ -1,7 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import sqlite3
-from .common import DB_FILE
+from .common import DB_FILE, apply_striped_rows
 
 def show_history_dialog():
     hist_win = tk.Toplevel()
@@ -36,6 +36,7 @@ def show_history_dialog():
             rows = c.fetchall()
         for row in rows:
             tree.insert("", tk.END, values=row)
+        apply_striped_rows(tree)
         conn.close()
 
     search_entry.bind("<KeyRelease>", lambda e: load_history())

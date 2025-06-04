@@ -71,3 +71,14 @@ def get_all_group_names():
     conn.close()
     return groups
 
+# --- UI Helpers ---
+def apply_striped_rows(tree):
+    """Apply alternating background colors to a Treeview."""
+    tree.tag_configure("evenrow", background="#f2f2f2")
+    tree.tag_configure("oddrow", background="#ffffff")
+    for idx, iid in enumerate(tree.get_children()):
+        tags = list(tree.item(iid, "tags"))
+        tags = [t for t in tags if t not in ("evenrow", "oddrow")]
+        tags.append("evenrow" if idx % 2 == 0 else "oddrow")
+        tree.item(iid, tags=tuple(tags))
+

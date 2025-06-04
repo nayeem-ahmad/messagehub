@@ -3,8 +3,9 @@ from tkinter import ttk, messagebox, simpledialog, filedialog, Toplevel, Listbox
 import sqlite3
 from datetime import datetime
 import pandas as pd
-from .contact_dialog import AddContactDialog
-from .common import DB_FILE, load_column_widths, save_column_widths, get_settings, get_all_group_names
+from contact_dialog import AddContactDialog
+from .common import DB_FILE, load_column_widths, save_column_widths, get_settings, get_all_group_names, apply_striped_rows
+
 
 
 def show_contacts(parent):
@@ -45,6 +46,7 @@ def show_contacts(parent):
                 tree.item(iid, tags=("checked",))
                 tree.set(iid, "Select", "✔")
         update_select_btn()
+        apply_striped_rows(tree)
 
     def update_select_btn():
         selected = tree.selection()
@@ -125,6 +127,7 @@ def show_contacts(parent):
                         tree.item(row, tags=("checked",))
                         tree.set(row, "Select", "✔")
                     update_select_btn()
+                    apply_striped_rows(tree)
     tree.bind("<Button-1>", on_treeview_click)
     tree.bind("<<TreeviewSelect>>", lambda e: update_select_btn())
 
@@ -166,6 +169,7 @@ def load_contacts_with_checkboxes(tree, insert_with_checkbox, group="All"):
     for idx, row in enumerate(rows, 1):
         # row: (id, name, email, mobile, groupnames)
         insert_with_checkbox((row[1], row[2], row[3], row[4] or ""), idx)
+    apply_striped_rows(tree)
 
 def add_contact(tree):
     dialog = AddContactDialog(tree.master)
@@ -195,6 +199,7 @@ def add_contact(tree):
             groupnames = ", ".join(selected_groups) if selected_groups else ""
             sn = len(tree.get_children()) + 1
             tree.insert("", tk.END, values=("", sn, name, email, mobile, groupnames), tags=("unchecked",))
+            apply_striped_rows(tree)
         except sqlite3.IntegrityError:
             messagebox.showerror("Error", "Email address already exists!")
         finally:
@@ -269,6 +274,7 @@ def delete_contacts(tree):
         tree.delete(iid)
     conn.commit()
     conn.close()
+    apply_striped_rows(tree)
 
 def load_contacts(tree):
     # Clear existing items
@@ -282,6 +288,7 @@ def load_contacts(tree):
     for row in c.execute("SELECT name, email, mobile FROM contacts"):
         tree.insert("", tk.END, values=row)
     conn.close()
+    apply_striped_rows(tree)
 
 def show_groups(parent):
     # Clear existing content
@@ -336,6 +343,7 @@ def load_groups(tree):
     for row in c.execute("SELECT short_name, name, description FROM groups ORDER BY short_name"):
         tree.insert("", tk.END, values=row)
     conn.close()
+    apply_striped_rows(tree)
 
 def add_group(tree):
     from tkinter import simpledialog, messagebox
