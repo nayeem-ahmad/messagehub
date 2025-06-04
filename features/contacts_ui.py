@@ -20,17 +20,17 @@ def show_contacts(parent):
     # Button group: Add, Edit, Delete
     btn_group = ttk.Frame(toolbar)
     btn_group.pack(side=tk.LEFT)
-    add_btn = ttk.Button(btn_group, text="Add Contact", command=lambda: add_contact(tree))
+    add_btn = ttk.Button(btn_group, text="➕ Add Contact", command=lambda: add_contact(tree))
     add_btn.pack(side=tk.LEFT, padx=(0, 2))
-    edit_btn = ttk.Button(btn_group, text="Edit Contact", command=lambda: edit_contact(tree))
+    edit_btn = ttk.Button(btn_group, text="✏️ Edit Contact", command=lambda: edit_contact(tree))
     edit_btn.pack(side=tk.LEFT, padx=2)
-    delete_btn = ttk.Button(btn_group, text="Delete Contact(s)", command=lambda: delete_contacts(tree))
+    delete_btn = ttk.Button(btn_group, text="🗑️ Delete Contact(s)", command=lambda: delete_contacts(tree))
     delete_btn.pack(side=tk.LEFT, padx=2)
 
     # Select/Unselect button above the checkbox column
     select_btn_frame = ttk.Frame(toolbar)
     select_btn_frame.pack(side=tk.LEFT, padx=(20, 0))
-    select_btn = ttk.Button(select_btn_frame, text="Select", width=8)
+    select_btn = ttk.Button(select_btn_frame, text="✔️ Select", width=10)
     select_btn.pack()
 
     def toggle_selected_contacts():
@@ -60,7 +60,7 @@ def show_contacts(parent):
     select_btn.config(command=toggle_selected_contacts)
 
     # Import button at the right
-    import_btn = ttk.Button(toolbar, text="Import Contacts from CSV", command=lambda: import_contacts_dialog(tree))
+    import_btn = ttk.Button(toolbar, text="📂 Import Contacts from CSV", command=lambda: import_contacts_dialog(tree))
     import_btn.pack(side=tk.RIGHT, padx=5)
 
     # Group filter dropdown
@@ -322,11 +322,11 @@ def show_groups(parent):
 
     btn_group = ttk.Frame(toolbar)
     btn_group.pack(side=tk.LEFT)
-    add_btn = ttk.Button(btn_group, text="Add Group", command=lambda: add_group(groups_tree))
+    add_btn = ttk.Button(btn_group, text="➕ Add Group", command=lambda: add_group(groups_tree))
     add_btn.pack(side=tk.LEFT, padx=(0, 2))
-    edit_btn = ttk.Button(btn_group, text="Edit Group", command=lambda: edit_group(groups_tree))
+    edit_btn = ttk.Button(btn_group, text="✏️ Edit Group", command=lambda: edit_group(groups_tree))
     edit_btn.pack(side=tk.LEFT, padx=2)
-    delete_btn = ttk.Button(btn_group, text="Delete Group", command=lambda: delete_group(groups_tree))
+    delete_btn = ttk.Button(btn_group, text="🗑️ Delete Group", command=lambda: delete_group(groups_tree))
     delete_btn.pack(side=tk.LEFT, padx=2)
 
     # Groups list
