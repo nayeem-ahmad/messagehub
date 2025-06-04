@@ -48,5 +48,32 @@ def init_db():
             UNIQUE(campaign_id, contact_id)
         )
     ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS email_campaigns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            subject TEXT,
+            body TEXT
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS email_campaign_contacts (
+            campaign_id INTEGER,
+            contact_id INTEGER,
+            FOREIGN KEY(campaign_id) REFERENCES email_campaigns(id),
+            FOREIGN KEY(contact_id) REFERENCES contacts(id),
+            UNIQUE(campaign_id, contact_id)
+        )
+    ''')
+    c.execute('''
+        CREATE TABLE IF NOT EXISTS email_campaign_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            campaign_id INTEGER,
+            contact_id INTEGER,
+            timestamp TEXT,
+            status TEXT,
+            error TEXT
+        )
+    ''')
     conn.commit()
     conn.close()

@@ -92,7 +92,7 @@ def setup_main_ui(root):
     sidebar_buttons = [
         ("Contacts", lambda: show_contacts(content)),
         ("Groups", lambda: show_groups(content)),
-        ("Campaigns", lambda: show_campaigns(content)),
+        ("Email Campaigns", lambda: show_email_campaigns(content)),
         ("SMS Campaign", lambda: show_sms_campaigns(content)),
     ]
 
@@ -1105,8 +1105,94 @@ def send_emails_dialog(tree):
     send_btn = ttk.Button(dialog, text="Send", command=send_all_emails)
     send_btn.pack(pady=10)
 
-# --- History Dialog ---
+def import_contacts_dialog(tree):
+    from tkinter import filedialog, messagebox, simpledialog, Toplevel, Listbox, MULTIPLE, Button, Label, END
+    from contacts import import_contacts_from_csv
+    import sqlite3
+    # Step 1: File selection
+    filename = filedialog.askopenfilename(
+        title="Select CSV File",
+        filetypes=[("CSV Files", "*.csv"), ("All Files", "*")]
+    )
+    if not filename:
+        return
+    # Step 2: Group selection dialog
+    group_win = Toplevel()
+    group_win.title("Select Groups for Imported Contacts")
+    Label(group_win, text="Assign imported contacts to group(s):").pack(padx=10, pady=(10, 0))
+    group_listbox = Listbox(group_win, selectmode=MULTIPLE, width=40, height=8)
+    group_listbox.pack(padx=10, pady=10)
+    # Fetch group names
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT short_name FROM groups ORDER BY short_name")
+    group_names = [row[0] for row in c.fetchall()]
+    conn.close()
+    for g in group_names:
+        group_listbox.insert(END, g)
+    result = {'done': False}
+    def on_ok():
+        result['selected'] = [group_names[i] for i in group_listbox.curselection()]
+        result['done'] = True
+        group_win.destroy()
+    def on_cancel():
+        result['selected'] = []
+        result['done'] = False
+        group_win.destroy()
+    btn_ok = Button(group_win, text="OK", command=on_ok)
+    btn_ok.pack(side="left", padx=20, pady=10)
+    btn_cancel = Button(group_win, text="Cancel", command=on_cancel)
+    btn_cancel.pack(side="right", padx=20, pady=10)
+    group_win.grab_set()
+    group_win.wait_window()
+    if not result.get('done'):
+        return
+    selected_groups = result.get('selected', [])
+    # Step 3: Import and assign groups
+    try:
+        imported = import_contacts_from_csv(filename)
+        # Assign to groups
+        if selected_groups and imported > 0:
+            conn = sqlite3.connect(DB_FILE)
+            c = conn.cursor()
+            # Get ids of imported contacts (assume new ones have no group assignment yet)
+            c.execute("SELECT id, email FROM contacts")
+            all_contacts = {row[1]: row[0] for row in c.fetchall()}
+            import pandas as pd
+            data = pd.read_csv(filename)
+            for _, row in data.iterrows():
+                email = row.get('email')
+                if not email or email not in all_contacts:
+                    continue
+                contact_id = all_contacts[email]
+                for group_name in selected_groups:
+                    c.execute("SELECT id FROM groups WHERE short_name=?", (group_name,))
+                    group_row = c.fetchone()
+                    if group_row:
+                        group_id = group_row[0]
+                        c.execute("INSERT OR IGNORE INTO group_members (group_id, contact_id) VALUES (?, ?)", (group_id, contact_id))
+            conn.commit()
+            conn.close()
+        messagebox.showinfo("Import Contacts", f"Imported {imported} contacts from CSV.")
+        # Refresh contacts list
+        try:
+            import inspect
+            for frame_info in inspect.stack():
+                local_vars = frame_info.frame.f_locals
+                if 'insert_with_checkbox' in local_vars:
+                    load_contacts_with_checkboxes(tree, local_vars['insert_with_checkbox'], group="All")
+                    break
+            else:
+                load_contacts(tree)
+        except Exception:
+            load_contacts(tree)
+    except Exception as e:
+        messagebox.showerror("Import Contacts", f"Failed to import contacts: {e}")
+
 def show_history_dialog():
+    import tkinter as tk
+    from tkinter import ttk
+    import sqlite3
     hist_win = tk.Toplevel()
     hist_win.title("Email History")
     hist_win.geometry("900x500")
@@ -1143,52 +1229,3 @@ def show_history_dialog():
 
     search_entry.bind("<KeyRelease>", lambda e: load_history())
     load_history()
-
-def edit_contact(tree):
-    selected = [iid for iid in tree.get_children() if tree.selection() and iid in tree.selection()]
-    if not selected or len(selected) != 1:
-        messagebox.showinfo("Edit Contact", "Please select exactly one contact to edit.")
-        return
-    iid = selected[0]
-    values = tree.item(iid, "values")
-    # values: (Select, S.No., Name, Email, Mobile, Groups)
-    old_name, old_email, old_mobile = values[2], values[3], values[4]
-    from contact_dialog import AddContactDialog
-    # Get contact_id for group assignment
-    import sqlite3
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("SELECT id FROM contacts WHERE name=? AND email=? AND mobile=?", (old_name, old_email, old_mobile))
-    row = c.fetchone()
-    contact_id = row[0] if row else None
-    conn.close()
-    dialog = AddContactDialog(tree.master, name=old_name, email=old_email, mobile=old_mobile, contact_id=contact_id)
-    if dialog.result:
-        new_name, new_email, new_mobile, selected_groups = dialog.result
-        conn = sqlite3.connect(DB_FILE)
-        c = conn.cursor()
-        try:
-            c.execute("UPDATE contacts SET name=?, email=?, mobile=? WHERE name=? AND email=? AND mobile= ?", 
-                      (new_name, new_email, new_mobile, old_name, old_email, old_mobile))
-            # Update group assignments
-            if contact_id is not None:
-                # Remove all current group assignments
-                c.execute("DELETE FROM group_members WHERE contact_id=?", (contact_id,))
-                # Add new group assignments
-                for group_name in selected_groups:
-                    c.execute("SELECT id FROM groups WHERE short_name=?", (group_name,))
-                    group_row = c.fetchone()
-                    if group_row:
-                        group_id = group_row[0]
-                        c.execute("INSERT OR IGNORE INTO group_members (group_id, contact_id) VALUES (?, ?)", (group_id, contact_id))
-            conn.commit()
-            # Fetch updated group names for display
-            c.execute("SELECT GROUP_CONCAT(groups.short_name, ', ') FROM groups JOIN group_members ON groups.id = group_members.group_id WHERE group_members.contact_id=?", (contact_id,))
-            groupnames_row = c.fetchone()
-            groupnames = groupnames_row[0] if groupnames_row and groupnames_row[0] else ""
-            # Update the row in the treeview
-            tree.item(iid, values=(values[0], values[1], new_name, new_email, new_mobile, groupnames))
-        except sqlite3.IntegrityError:
-            messagebox.showerror("Error", "Email address already exists!")
-        finally:
-            conn.close()
