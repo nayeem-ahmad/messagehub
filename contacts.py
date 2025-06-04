@@ -1,9 +1,12 @@
 import sqlite3
 import pandas as pd
+import os
+
+DB_FILE = os.path.join("private", "contacts.db")
 
 def import_contacts_from_csv(filename):
     data = pd.read_csv(filename)
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     imported = 0
     for _, row in data.iterrows():
@@ -17,7 +20,7 @@ def import_contacts_from_csv(filename):
     return imported
 
 def get_contacts_for_group(group_name):
-    conn = sqlite3.connect("contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     if group_name == "All Contacts":
         c.execute("SELECT name, email FROM contacts")

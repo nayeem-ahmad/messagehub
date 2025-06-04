@@ -4,6 +4,7 @@ NaCaZoEmailer.spec
 __pycache__/contact_dialog.cpython-311.pyc
 __pycache__/db.cpython-311.pyc
 __pycache__/ui.cpython-311.pyc
+__pycache__/*.pyc
 build/NaCaZoEmailer/Analysis-00.toc
 build/NaCaZoEmailer/base_library.zip
 build/NaCaZoEmailer/EXE-00.toc
