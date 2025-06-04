@@ -4,7 +4,7 @@ import sqlite3
 import threading
 import time
 import requests
-from .common import DB_FILE, get_settings, center_window, get_all_group_names
+from .common import DB_FILE, get_settings, center_window, get_all_group_names, apply_striped_rows
 
 # --- SMS Campaigns UI ---
 def show_sms_campaigns(parent):
@@ -59,6 +59,7 @@ def load_sms_campaigns(tree):
     for row in c.execute("SELECT name, message FROM sms_campaigns ORDER BY id DESC"):
         tree.insert("", tk.END, values=row)
     conn.close()
+    apply_striped_rows(tree)
 
 def add_sms_campaign(tree):
     open_sms_campaign_wizard(tree, mode="add")
@@ -257,6 +258,7 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
                 name, mobile = name_mobile.split(" <")
                 mobile = mobile.rstrip(">")
                 send_tree.insert("", tk.END, values=(i, name, mobile, "Pending"))
+            apply_striped_rows(send_tree)
             progress['value'] = 0
             progress['maximum'] = len(sel_contact_ids)
             counter_var.set(f"Total: {len(sel_contact_ids)} | Success: 0 | Failed: 0")
@@ -312,7 +314,11 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
                 base_url = "http://bulksmsbd.net/api/smsapi"
                 for idx, (cid, cname, cemail, cmobile) in enumerate(contacts):
                     scroll_to_row(idx)
-                    send_tree.item(send_tree.get_children()[idx], tags=("current",))
+                    iid = send_tree.get_children()[idx]
+                    tags = [t for t in send_tree.item(iid, "tags") if t not in ("evenrow", "oddrow", "current")]
+                    tags.append("current")
+                    tags.append("evenrow" if idx % 2 == 0 else "oddrow")
+                    send_tree.item(iid, tags=tuple(tags))
                     dialog.update_idletasks()
                     personalized_msg = message_text.get("1.0", tk.END).replace("{{name}}", cname).replace("{{email}}", cemail).replace("{{mobile}}", cmobile)
                     params = {
@@ -435,7 +441,11 @@ def send_sms_wizard(dialog, send_tree, contact_ids, campaign_name, message, prog
         base_url = "http://bulksmsbd.net/api/smsapi"
         for idx, (cid, cname, cemail, cmobile) in enumerate(contacts):
             scroll_to_row(idx)
-            send_tree.item(send_tree.get_children()[idx], tags=("current",))
+            iid = send_tree.get_children()[idx]
+            tags = [t for t in send_tree.item(iid, "tags") if t not in ("evenrow", "oddrow", "current")]
+            tags.append("current")
+            tags.append("evenrow" if idx % 2 == 0 else "oddrow")
+            send_tree.item(iid, tags=tuple(tags))
             dialog.update_idletasks()
             # Personalize message
             personalized_msg = message.replace("{{name}}", cname).replace("{{email}}", cemail).replace("{{mobile}}", cmobile)
