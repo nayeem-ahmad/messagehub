@@ -3,7 +3,6 @@ from tkinter import ttk, messagebox, simpledialog, filedialog, Toplevel, Listbox
 import sqlite3
 from datetime import datetime
 import pandas as pd
-import inspect
 from contact_dialog import AddContactDialog
 from .common import DB_FILE, load_column_widths, save_column_widths, get_settings, get_all_group_names
 
@@ -103,6 +102,9 @@ def show_contacts(parent):
         tree.set(iid, "Select", " ")  # Placeholder for checkbox
         tree.item(iid, tags=("unchecked",))
         return iid
+
+    # expose loader so other functions can refresh correctly
+    tree.insert_with_checkbox = insert_with_checkbox
 
     # Load contacts
     load_contacts_with_checkboxes(tree, insert_with_checkbox, group="All")
@@ -209,7 +211,7 @@ def edit_contact(tree):
     name = values[2]
     email = values[3]
     mobile = values[4]
-    import sqlite3, inspect
+    import sqlite3
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute("SELECT id FROM contacts WHERE email=?", (email,))
@@ -235,24 +237,12 @@ def edit_contact(tree):
             messagebox.showerror("Error", "Email address already exists!")
         finally:
             conn.close()
-        try:
-            for frame_info in inspect.stack():
-                local_vars = frame_info.frame.f_locals
-                if 'insert_with_checkbox' in local_vars:
-                    load_contacts_with_checkboxes(tree, local_vars['insert_with_checkbox'], group='All')
-                    break
-            else:
-                parent = tree.master
-                while parent and not hasattr(parent, 'winfo_children'):
-                    parent = getattr(parent, 'master', None)
-                if parent:
-                    show_contacts(parent)
-        except Exception:
-            parent = tree.master
-            while parent and not hasattr(parent, 'winfo_children'):
-                parent = getattr(parent, 'master', None)
-            if parent:
-                show_contacts(parent)
+        insert_cb = getattr(tree, 'insert_with_checkbox', None)
+        if insert_cb:
+            load_contacts_with_checkboxes(tree, insert_cb, group='All')
+        else:
+            parent = getattr(tree.master, 'master', tree.master)
+            show_contacts(parent)
 
 def delete_contacts(tree):
     selected = []
@@ -632,27 +622,12 @@ def import_contacts_dialog(tree):
             conn.close()
         messagebox.showinfo("Import Contacts", f"Imported {imported} contacts from CSV.")
         # Always refresh contacts list using loader to ensure correct columns
-        try:
-            import inspect
-            for frame_info in inspect.stack():
-                local_vars = frame_info.frame.f_locals
-                if 'insert_with_checkbox' in local_vars:
-                    load_contacts_with_checkboxes(tree, local_vars['insert_with_checkbox'], group="All")
-                    break
-            else:
-                # Fallback: reload via show_contacts if loader not found
-                parent = tree.master
-                while parent and not hasattr(parent, 'winfo_children'):
-                    parent = getattr(parent, 'master', None)
-                if parent:
-                    show_contacts(parent)
-        except Exception:
-            # Fallback: reload via show_contacts
-            parent = tree.master
-            while parent and not hasattr(parent, 'winfo_children'):
-                parent = getattr(parent, 'master', None)
-            if parent:
-                show_contacts(parent)
+        insert_cb = getattr(tree, 'insert_with_checkbox', None)
+        if insert_cb:
+            load_contacts_with_checkboxes(tree, insert_cb, group="All")
+        else:
+            parent = getattr(tree.master, 'master', tree.master)
+            show_contacts(parent)
     except Exception as e:
         messagebox.showerror("Import Contacts", f"Failed to import contacts: {e}")
 
