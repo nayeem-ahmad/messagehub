@@ -1,6 +1,6 @@
 from tkinter import *
 from tkinter import ttk, filedialog, messagebox, scrolledtext
-from contacts import import_contacts_from_csv, get_contacts_for_group
+from services.contacts import import_contacts_from_csv, get_contacts_for_group
 from datetime import datetime
 
 def setup_main_ui(root):

@@ -1,9 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import sqlite3
-import os
-
-DB_FILE = os.path.join("private", "contacts.db")
+from .common import DB_FILE
 
 class AddContactDialog:
     def __init__(self, parent, name=None, email=None, mobile=None, contact_id=None):
