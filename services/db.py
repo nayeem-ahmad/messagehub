@@ -1,9 +1,10 @@
 import sqlite3
 import os
 
-DB_FILE = os.path.join("private", "contacts.db")
+from features.common import DB_FILE, PRIVATE_DIR
 
 def init_db():
+    os.makedirs(PRIVATE_DIR, exist_ok=True)
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     c.execute('''
