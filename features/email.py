@@ -523,6 +523,7 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
                     "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, '')",
                     (campaign_id, cid, 'Sent')
                 )
+                conn_th.commit()
                 success += 1
             except Exception as e:
                 send_tree.set(send_tree.get_children()[idx], column="Status", value=f"❌ {e}")
@@ -530,6 +531,7 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
                     "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, ?)",
                     (campaign_id, cid, 'Failed', str(e))
                 )
+                conn_th.commit()
                 failed += 1
             counter_var.set(f"Total: {success+failed} | Success: {success} | Failed: {failed}")
             dialog.update_idletasks()
