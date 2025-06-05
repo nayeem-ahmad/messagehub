@@ -431,6 +431,7 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
     c.execute("SELECT id FROM email_campaigns WHERE name=?", (campaign_name,))
     row = c.fetchone()
     campaign_id = row[0] if row else None
+    conn.close()
 
     success = 0
     failed = 0
@@ -454,6 +455,8 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
 
     def send_thread():
         nonlocal success, failed
+        conn_th = sqlite3.connect(DB_FILE)
+        c_th = conn_th.cursor()
         for idx, (cid, cname, cemail, cmobile) in enumerate(contacts):
             scroll(idx)
             iid = send_tree.get_children()[idx]
@@ -473,14 +476,14 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
                 elif email_method == 'ses':
                     email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, cemail, personalized_subject, personalized_body)
                 send_tree.set(send_tree.get_children()[idx], column="Status", value="✔️")
-                c.execute(
+                c_th.execute(
                     "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, '')",
                     (campaign_id, cid, 'Sent')
                 )
                 success += 1
             except Exception as e:
                 send_tree.set(send_tree.get_children()[idx], column="Status", value=f"❌ {e}")
-                c.execute(
+                c_th.execute(
                     "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, ?)",
                     (campaign_id, cid, 'Failed', str(e))
                 )
@@ -490,8 +493,8 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
             progress['value'] = idx + 1
             time.sleep(1.5)
 
-        conn.commit()
-        conn.close()
+        conn_th.commit()
+        conn_th.close()
         sending[0] = False
 
     threading.Thread(target=update_timer, daemon=True).start()
