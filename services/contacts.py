@@ -1,6 +1,8 @@
 import sqlite3
 import pandas as pd
 
+from features.common import DB_FILE
+
 def import_contacts_from_csv(filename):
     data = pd.read_csv(filename)
     required_cols = {'name', 'email', 'mobile'}
@@ -9,7 +11,7 @@ def import_contacts_from_csv(filename):
     missing = required_cols - set(data.columns)
     if missing:
         raise Exception(f"CSV is missing required columns: {', '.join(missing)}. Required columns are: name, email, mobile.")
-    conn = sqlite3.connect("private/contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     imported = 0
     for _, row in data.iterrows():
@@ -33,7 +35,7 @@ def import_contacts_from_csv(filename):
     return imported
 
 def get_contacts_for_group(group_name):
-    conn = sqlite3.connect("private/contacts.db")
+    conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
     if group_name == "All Contacts":
         c.execute("SELECT name, email FROM contacts")
