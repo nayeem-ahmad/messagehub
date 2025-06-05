@@ -141,8 +141,16 @@ def delete_email_campaign(tree):
     import sqlite3
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
-    c.execute("DELETE FROM email_campaigns WHERE name=?", (name,))
-    c.execute("DELETE FROM email_campaign_contacts WHERE campaign_id IN (SELECT id FROM email_campaigns WHERE name=?)", (name,))
+    c.execute("SELECT id FROM email_campaigns WHERE name=?", (name,))
+    row = c.fetchone()
+    campaign_id = row[0] if row else None
+    if campaign_id:
+        c.execute("DELETE FROM email_campaign_contacts WHERE campaign_id=?", (campaign_id,))
+        c.execute("DELETE FROM email_campaigns WHERE id=?", (campaign_id,))
+    else:
+        conn.close()
+        load_email_campaigns(tree)
+        return
     conn.commit()
     conn.close()
     load_email_campaigns(tree)
@@ -410,12 +418,23 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
     conn = sqlite3.connect(DB_FILE)
     c = conn.cursor()
 
-    # Query contacts for the provided IDs
-    placeholders = ','.join(['?'] * len(contact_ids))
-    c.execute(f"SELECT id, name, email, mobile FROM contacts WHERE id IN ({placeholders})", contact_ids)
-    contacts = c.fetchall()
-
-    # Ensure history table exists
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS email_campaigns (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            subject TEXT,
+            body TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE IF NOT EXISTS email_campaign_contacts (
+            campaign_id INTEGER,
+            contact_id INTEGER,
+            FOREIGN KEY(campaign_id) REFERENCES email_campaigns(id),
+            FOREIGN KEY(contact_id) REFERENCES contacts(id),
+            UNIQUE(campaign_id, contact_id)
+        )
+    """)
     c.execute("""
         CREATE TABLE IF NOT EXISTS email_campaign_history (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -427,10 +446,36 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
         )
     """)
 
-    # Resolve campaign_id for history records
     c.execute("SELECT id FROM email_campaigns WHERE name=?", (campaign_name,))
     row = c.fetchone()
-    campaign_id = row[0] if row else None
+    if row:
+        campaign_id = row[0]
+        c.execute(
+            "UPDATE email_campaigns SET subject=?, body=? WHERE id=?",
+            (subject, body, campaign_id),
+        )
+        c.execute("DELETE FROM email_campaign_contacts WHERE campaign_id=?", (campaign_id,))
+    else:
+        c.execute(
+            "INSERT INTO email_campaigns (name, subject, body) VALUES (?, ?, ?)",
+            (campaign_name, subject, body),
+        )
+        campaign_id = c.lastrowid
+
+    for cid in contact_ids:
+        c.execute(
+            "INSERT OR IGNORE INTO email_campaign_contacts (campaign_id, contact_id) VALUES (?, ?)",
+            (campaign_id, cid),
+        )
+
+    placeholders = ",".join(["?"] * len(contact_ids))
+    c.execute(
+        f"SELECT id, name, email, mobile FROM contacts WHERE id IN ({placeholders})",
+        contact_ids,
+    )
+    contacts = c.fetchall()
+
+    conn.commit()
     conn.close()
 
     success = 0
