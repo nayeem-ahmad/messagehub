@@ -24,8 +24,6 @@ def show_email_campaigns(parent):
     delete_btn.pack(side=tk.LEFT, padx=2)
     send_btn = ttk.Button(btn_group, text="✉️ Send Email Campaign", command=lambda: send_selected_email_campaign(email_tree))
     send_btn.pack(side=tk.LEFT, padx=2)
-    history_btn = ttk.Button(toolbar, text="📜 History", command=lambda: show_email_campaign_history(email_tree))
-    history_btn.pack(side=tk.RIGHT, padx=5)
     columns = ("Name", "Subject", "Body")
     email_frame = ttk.Frame(parent)
     email_frame.pack(fill=tk.BOTH, expand=True)

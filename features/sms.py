@@ -4,6 +4,7 @@ import sqlite3
 import threading
 import time
 import requests
+from datetime import datetime
 from .common import DB_FILE, get_settings, center_window, get_all_group_names, apply_striped_rows
 
 # --- SMS Campaigns UI ---
@@ -452,6 +453,16 @@ def send_sms_wizard(dialog, send_tree, contact_ids, campaign_name, message, prog
             send_tree.selection_set(children[idx])
     def send_thread():
         nonlocal success, failed
+        hist_conn = sqlite3.connect(DB_FILE)
+        hc = hist_conn.cursor()
+        hc.execute('''CREATE TABLE IF NOT EXISTS sms_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp TEXT,
+            body TEXT,
+            recipient TEXT,
+            status TEXT
+        )''')
+        hist_conn.commit()
         base_url = "http://bulksmsbd.net/api/smsapi"
         for idx, (cid, cname, cemail, cmobile) in enumerate(contacts):
             scroll_to_row(idx)
@@ -470,6 +481,7 @@ def send_sms_wizard(dialog, send_tree, contact_ids, campaign_name, message, prog
                 "senderid": sender_id,
                 "message": personalized_msg
             }
+            status_text = "Sent"
             try:
                 resp = requests.get(base_url, params=params, timeout=10)
                 # Debug: log response for troubleshooting
@@ -479,15 +491,21 @@ def send_sms_wizard(dialog, send_tree, contact_ids, campaign_name, message, prog
                     success += 1
                 else:
                     send_tree.set(send_tree.get_children()[idx], column="Status", value="❌")
+                    status_text = f"Failed: {resp.text.strip()}"
                     failed += 1
             except Exception as e:
                 print(f"SMS API error for {cmobile}: {e}")
                 send_tree.set(send_tree.get_children()[idx], column="Status", value="❌")
+                status_text = f"Failed: {e}"
                 failed += 1
+            hc.execute("INSERT INTO sms_history (timestamp, body, recipient, status) VALUES (?, ?, ?, ?)",
+                       (datetime.now().isoformat(), personalized_msg, cmobile, status_text))
+            hist_conn.commit()
             counter_var.set(f"Total: {success+failed} | Success: {success} | Failed: {failed}")
             dialog.update_idletasks()
             progress['value'] = idx + 1
             time.sleep(1.5)
+        hist_conn.close()
         sending[0] = False
     sending = [True]
     threading.Thread(target=update_timer, daemon=True).start()
