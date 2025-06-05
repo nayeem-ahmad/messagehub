@@ -1,9 +1,18 @@
 import os
+import sys
 import json
 from tkinter import messagebox
-DB_FILE = os.path.join("private", "contacts.db")
-SETTINGS_FILE = os.path.join("private", "settings.json")
-COLUMN_WIDTHS_FILE = os.path.join("private", "column_widths.json")
+
+if getattr(sys, "frozen", False):
+    _BASE_DIR = os.path.dirname(sys.executable)
+else:
+    _BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+PRIVATE_DIR = os.path.join(_BASE_DIR, "private")
+
+DB_FILE = os.path.join(PRIVATE_DIR, "contacts.db")
+SETTINGS_FILE = os.path.join(PRIVATE_DIR, "settings.json")
+COLUMN_WIDTHS_FILE = os.path.join(PRIVATE_DIR, "column_widths.json")
 
 # --- Settings Management ---
 def get_settings():
