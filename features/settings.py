@@ -232,7 +232,18 @@ class CreateToolTip:
         self.widget.bind("<Leave>", self.leave)
 
     def enter(self, event=None):
-        x, y, _, _ = self.widget.bbox("insert")
+        try:
+            # Try to get bbox for widgets that support "insert" (like Text widgets)
+            bbox = self.widget.bbox("insert")
+            if bbox is not None:
+                x, y, _, _ = bbox
+            else:
+                # Fallback for widgets that don't support "insert"
+                x, y = 0, 0
+        except (tk.TclError, AttributeError):
+            # Fallback for widgets that don't have bbox method or don't support "insert"
+            x, y = 0, 0
+        
         x += self.widget.winfo_rootx() + 25
         y += self.widget.winfo_rooty() + 25
         self.tooltip = tk.Toplevel(self.widget)
