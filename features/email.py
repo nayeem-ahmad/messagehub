@@ -403,6 +403,7 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
     settings = get_settings()
     email_method = settings.get('email_method', 'SMTP').lower()
     sender = settings.get('sender_email', '')
+    sender_name = settings.get('sender_name', '')
     password = settings.get('sender_pwd', '')
     smtp_server = settings.get('smtp_server', 'smtp.gmail.com')
     smtp_port = int(settings.get('smtp_port', '587'))
@@ -513,11 +514,11 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
             try:
                 if email_method == 'smtp':
                     smtp_settings = {"server": smtp_server, "port": smtp_port}
-                    email_utils.send_email('smtp', smtp_settings, sender, password, cemail, personalized_subject, personalized_body)
+                    email_utils.send_email('smtp', smtp_settings, sender, password, cemail, personalized_subject, personalized_body, sender_name)
                 elif email_method == 'sendgrid':
-                    email_utils.send_email('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, cemail, personalized_subject, personalized_body)
+                    email_utils.send_email('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, cemail, personalized_subject, personalized_body, sender_name)
                 elif email_method == 'ses':
-                    email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, cemail, personalized_subject, personalized_body)
+                    email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, cemail, personalized_subject, personalized_body, sender_name)
                 send_tree.set(send_tree.get_children()[idx], column="Status", value="✔️")
                 c_th.execute(
                     "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, '')",

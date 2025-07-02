@@ -58,13 +58,12 @@ def open_settings_dialog(parent):
             text=desc,
             font=("Segoe UI", 8),  # Reduced font size
             foreground="#666"
-        ).pack(anchor="w", padx=20)  # Reduced padding
-
-    # SMTP Settings Section (Left Column)
+        ).pack(anchor="w", padx=20)  # Reduced padding    # SMTP Settings Section (Left Column)
     smtp_frame = ttk.LabelFrame(left_column, text="SMTP Settings", padding=10)  # Reduced padding
     smtp_frame.pack(fill="x", pady=(0, 10))  # Reduced padding
 
     smtp_fields = [
+        ("Sender Name", 'sender_name', "Your display name (e.g., John Doe)"),
         ("Sender Email", 'sender_email', "Your email address"),
         ("Sender Password", 'sender_pwd', "Your email password or app password", True),
         ("SMTP Server", 'smtp_server', "e.g., smtp.gmail.com"),

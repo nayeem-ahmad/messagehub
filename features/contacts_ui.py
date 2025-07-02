@@ -3,8 +3,11 @@ from tkinter import ttk, messagebox, simpledialog, filedialog, Toplevel, Listbox
 import sqlite3
 from datetime import datetime
 import pandas as pd
+import time
+import random
+import threading
 from .contact_dialog import AddContactDialog
-from .common import DB_FILE, load_column_widths, save_column_widths, get_settings, get_all_group_names, apply_striped_rows
+from .common import DB_FILE, load_column_widths, save_column_widths, get_settings, get_all_group_names, apply_striped_rows, center_window
 
 
 
@@ -524,11 +527,11 @@ def send_emails_dialog(tree):
     def send_all_emails():
         send_btn.config(state=tk.DISABLED)
         subject = subject_var.get()
-        body = body_text.get("1.0", tk.END).strip()
-        # Load settings
+        body = body_text.get("1.0", tk.END).strip()        # Load settings
         settings = get_settings()
         email_method = settings.get('email_method', 'SMTP').lower()
         sender = settings.get('sender_email', '')
+        sender_name = settings.get('sender_name', '')
         password = settings.get('sender_pwd', '')
         smtp_server = settings.get('smtp_server', 'smtp.gmail.com')
         smtp_port = int(settings.get('smtp_port', '587'))
@@ -572,11 +575,11 @@ def send_emails_dialog(tree):
                 try:
                     if email_method == 'smtp':
                         smtp_settings = {"server": smtp_server, "port": smtp_port}
-                        email_utils.send_email('smtp', smtp_settings, sender, password, contact['email'], personalized_subject, personalized_body)
+                        email_utils.send_email('smtp', smtp_settings, sender, password, contact['email'], personalized_subject, personalized_body, sender_name)
                     elif email_method == 'sendgrid':
-                        email_utils.send_email('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, contact['email'], personalized_subject, personalized_body)
+                        email_utils.send_email('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, contact['email'], personalized_subject, personalized_body, sender_name)
                     elif email_method == 'ses':
-                        email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, contact['email'], personalized_subject, personalized_body)
+                        email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, contact['email'], personalized_subject, personalized_body, sender_name)
                     status_var.set(f"Sent to {contact['email']}")
                     hc.execute("INSERT INTO email_history (timestamp, subject, body, email, status) VALUES (?, ?, ?, ?, ?)",
                                (datetime.now().isoformat(), personalized_subject, personalized_body, contact['email'], "Sent"))
