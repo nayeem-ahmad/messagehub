@@ -3,6 +3,7 @@ from tkinter import ttk, messagebox
 import sqlite3
 import time
 import threading
+import random
 from datetime import datetime
 from .common import DB_FILE, get_settings, center_window, get_all_group_names, apply_striped_rows
 from services import email_utils
@@ -523,11 +524,11 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
             try:
                 if email_method == 'smtp':
                     smtp_settings = {"server": smtp_server, "port": smtp_port}
-                    email_utils.send_email('smtp', smtp_settings, sender, password, cemail, personalized_subject, personalized_body, sender_name)
+                    email_utils.send_email_with_connection_check('smtp', smtp_settings, sender, password, cemail, personalized_subject, personalized_body, sender_name)
                 elif email_method == 'sendgrid':
-                    email_utils.send_email('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, cemail, personalized_subject, personalized_body, sender_name)
+                    email_utils.send_email_with_connection_check('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, cemail, personalized_subject, personalized_body, sender_name)
                 elif email_method == 'ses':
-                    email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, cemail, personalized_subject, personalized_body, sender_name)
+                    email_utils.send_email_with_connection_check('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, cemail, personalized_subject, personalized_body, sender_name)
                 send_tree.set(send_tree.get_children()[idx], column="Status", value="✔️")
                 c_th.execute(
                     "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, '')",
@@ -546,7 +547,10 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
             counter_var.set(f"Total: {success+failed} | Success: {success} | Failed: {failed}")
             dialog.update_idletasks()
             progress['value'] = idx + 1
-            time.sleep(1.5)
+            
+            # Add small random delay between emails to avoid being flagged as spam
+            delay = random.uniform(1, 3)
+            time.sleep(delay)
 
         conn_th.commit()
         conn_th.close()

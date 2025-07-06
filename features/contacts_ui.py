@@ -575,11 +575,11 @@ def send_emails_dialog(tree):
                 try:
                     if email_method == 'smtp':
                         smtp_settings = {"server": smtp_server, "port": smtp_port}
-                        email_utils.send_email('smtp', smtp_settings, sender, password, contact['email'], personalized_subject, personalized_body, sender_name)
+                        email_utils.send_email_with_connection_check('smtp', smtp_settings, sender, password, contact['email'], personalized_subject, personalized_body, sender_name)
                     elif email_method == 'sendgrid':
-                        email_utils.send_email('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, contact['email'], personalized_subject, personalized_body, sender_name)
+                        email_utils.send_email_with_connection_check('sendgrid', {"sendgrid_api_key": sendgrid_api_key}, sender, None, contact['email'], personalized_subject, personalized_body, sender_name)
                     elif email_method == 'ses':
-                        email_utils.send_email('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, contact['email'], personalized_subject, personalized_body, sender_name)
+                        email_utils.send_email_with_connection_check('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, contact['email'], personalized_subject, personalized_body, sender_name)
                     status_var.set(f"Sent to {contact['email']}")
                     hc.execute("INSERT INTO email_history (timestamp, subject, body, email, status) VALUES (?, ?, ?, ?, ?)",
                                (datetime.now().isoformat(), personalized_subject, personalized_body, contact['email'], "Sent"))
@@ -590,11 +590,13 @@ def send_emails_dialog(tree):
                                (datetime.now().isoformat(), personalized_subject, personalized_body, contact['email'], f"Failed: {e}"))
                     history_conn.commit()
                 sent_count += 1
-                time.sleep(1.5)  # Delay between emails
+                # Add small random delay between emails to avoid being flagged as spam
+                delay = random.uniform(1, 3)
+                time.sleep(delay)  # Delay between emails
                 if sent_count % 50 == 0:
-                    delay = random.randint(5, 60)
-                    status_var.set(f"Batch delay: {delay} seconds...")
-                    time.sleep(delay)
+                    batch_delay = random.randint(5, 60)
+                    status_var.set(f"Batch delay: {batch_delay} seconds...")
+                    time.sleep(batch_delay)
             history_conn.close()
             status_var.set("All emails processed.")
             send_btn.config(state=tk.NORMAL)
