@@ -23,8 +23,11 @@ def show_email_campaigns(parent):
     edit_btn.pack(side=tk.LEFT, padx=2)
     delete_btn = ttk.Button(btn_group, text="🗑️ Delete Email Campaign", command=lambda: delete_email_campaign(email_tree))
     delete_btn.pack(side=tk.LEFT, padx=2)
-    send_btn = ttk.Button(btn_group, text="✉️ Send Email Campaign", command=lambda: send_selected_email_campaign(email_tree))
+    send_btn = ttk.Button(btn_group, text="🚀 Launch Campaign", command=lambda: launch_selected_email_campaign(email_tree))
     send_btn.pack(side=tk.LEFT, padx=2)
+    
+    monitor_btn = ttk.Button(btn_group, text="📊 Monitor", command=lambda: monitor_selected_email_campaign(email_tree))
+    monitor_btn.pack(side=tk.LEFT, padx=2)
     columns = ("Name", "Subject", "Body")
     email_frame = ttk.Frame(parent)
     email_frame.pack(fill=tk.BOTH, expand=True)
@@ -617,4 +620,60 @@ def show_email_campaign_history(tree):
         treeview.insert("", tk.END, values=row)
     apply_striped_rows(treeview)
     update_counts()
+
+def launch_selected_email_campaign(tree):
+    """Launch selected email campaign with background/foreground options"""
+    selected = tree.selection()
+    if not selected or len(selected) != 1:
+        messagebox.showinfo("Launch Email Campaign", "Please select exactly one campaign to launch.")
+        return
+    
+    iid = selected[0]
+    name, subject, body = tree.item(iid, "values")
+    
+    # Get campaign ID from database
+    import sqlite3
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT id FROM email_campaigns WHERE name=?", (name,))
+    row = c.fetchone()
+    conn.close()
+    
+    if not row:
+        messagebox.showerror("Error", "Campaign not found in database.")
+        return
+    
+    campaign_id = row[0]
+    
+    # Import and launch the campaign launcher
+    from .campaign_launcher import launch_campaign
+    launch_campaign(tree.master, campaign_id, 'email', name)
+
+def monitor_selected_email_campaign(tree):
+    """Monitor selected email campaign"""
+    selected = tree.selection()
+    if not selected or len(selected) != 1:
+        messagebox.showinfo("Monitor Email Campaign", "Please select exactly one campaign to monitor.")
+        return
+    
+    iid = selected[0]
+    name, subject, body = tree.item(iid, "values")
+    
+    # Get campaign ID from database
+    import sqlite3
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT id FROM email_campaigns WHERE name=?", (name,))
+    row = c.fetchone()
+    conn.close()
+    
+    if not row:
+        messagebox.showerror("Error", "Campaign not found in database.")
+        return
+    
+    campaign_id = row[0]
+    
+    # Import and monitor the campaign
+    from .campaign_launcher import monitor_campaign
+    monitor_campaign(tree.master, campaign_id, 'email', name)
 

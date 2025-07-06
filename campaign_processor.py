@@ -269,10 +269,170 @@ class CampaignProcessor:
     
     def process_sms_campaign(self):
         """Process SMS campaign in background"""
-        self.log_progress("📱 SMS campaign processing not yet implemented")
-        self.update_campaign_status("failed", "SMS processing not implemented")
+        try:
+            self.log_progress("📱 Starting SMS campaign processor")
+            
+            conn = sqlite3.connect(self.db_path)
+            cursor = conn.cursor()
+            
+            # Get campaign details
+            cursor.execute("SELECT name, message FROM sms_campaigns WHERE id = ?", (self.campaign_id,))
+            campaign = cursor.fetchone()
+            
+            if not campaign:
+                self.log_progress("❌ SMS Campaign not found", "error")
+                self.update_campaign_status("failed", "Campaign not found")
+                return False
+                
+            campaign_name, message = campaign
+            self.log_progress(f"📱 Processing SMS campaign: {campaign_name}")
+            
+            # Get campaign contacts
+            cursor.execute("""
+                SELECT c.id, c.name, c.email, c.mobile 
+                FROM contacts c
+                JOIN sms_campaign_contacts scc ON c.id = scc.contact_id
+                WHERE scc.campaign_id = ? AND c.mobile IS NOT NULL AND c.mobile != ''
+                ORDER BY c.name
+            """, (self.campaign_id,))
+            
+            contacts = cursor.fetchall()
+            total_contacts = len(contacts)
+            
+            if total_contacts == 0:
+                self.log_progress("⚠️ No valid contacts with mobile numbers found", "warning")
+                self.update_campaign_status("completed", "No valid contacts")
+                return True
+                
+            self.log_progress(f"📊 Processing {total_contacts} contacts")
+            
+            # Load settings
+            settings = get_settings()
+            sms_method = settings.get('sms_method', 'Twilio')
+            
+            # Validate SMS settings
+            if not self._validate_sms_settings(settings, sms_method):
+                self.log_progress("❌ Invalid SMS settings", "error")
+                self.update_campaign_status("failed", "Invalid SMS settings")
+                return False
+            
+            sent_count = 0
+            failed_count = 0
+            
+            # Process each contact
+            for i, (contact_id, name, email, mobile) in enumerate(contacts):
+                if not self.running:
+                    self.log_progress("⏹️ SMS Campaign stopped by user")
+                    self.update_campaign_status("stopped", f"Processed {sent_count}/{total_contacts}")
+                    break
+                    
+                try:
+                    # Personalize content
+                    personalized_message = self._personalize_content(message, name, email, mobile)
+                    
+                    # Send SMS
+                    success = self._send_sms(settings, sms_method, mobile, personalized_message)
+                    
+                    if success:
+                        # Record success
+                        cursor.execute("""
+                            INSERT INTO sms_campaign_history 
+                            (campaign_id, contact_id, timestamp, status, personalized_message)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (self.campaign_id, contact_id, datetime.now(), "sent", personalized_message))
+                        
+                        sent_count += 1
+                        progress = int((i + 1) / total_contacts * 100)
+                        self.log_progress(f"✅ {progress}% - Sent to {name or 'Unknown'} ({mobile}) - {sent_count}/{total_contacts}")
+                    else:
+                        failed_count += 1
+                        
+                    # Commit after each SMS
+                    conn.commit()
+                    
+                    # Delay to avoid rate limiting
+                    if self.running:
+                        time.sleep(3)  # Longer delay for SMS to avoid rate limits
+                        
+                except Exception as e:
+                    # Record failure
+                    cursor.execute("""
+                        INSERT INTO sms_campaign_history 
+                        (campaign_id, contact_id, timestamp, status, error)
+                        VALUES (?, ?, ?, ?, ?)
+                    """, (self.campaign_id, contact_id, datetime.now(), "failed", str(e)))
+                    
+                    failed_count += 1
+                    self.log_progress(f"❌ Failed to send to {name or 'Unknown'} ({mobile}): {str(e)}", "error")
+                    conn.commit()
+            
+            # Final status
+            if self.running:
+                final_message = f"🎉 SMS Campaign completed! Sent: {sent_count}, Failed: {failed_count}"
+                self.log_progress(final_message)
+                self.update_campaign_status("completed", final_message)
+            
+            conn.close()
+            return True
+            
+        except Exception as e:
+            error_msg = f"💥 SMS Campaign processing error: {str(e)}"
+            self.log_progress(error_msg, "error")
+            self.update_campaign_status("failed", error_msg)
+            return False
+    
+    def _validate_sms_settings(self, settings, method):
+        """Validate SMS configuration"""
+        if method == "Twilio":
+            required = ['twilio_account_sid', 'twilio_auth_token', 'twilio_phone_number']
+            return all(settings.get(key) for key in required)
+        elif method == "AWS SNS":
+            required = ['aws_access_key', 'aws_secret_key', 'aws_region']
+            return all(settings.get(key) for key in required)
         return False
-
+    
+    def _send_sms(self, settings, method, recipient, message):
+        """Send individual SMS with error handling"""
+        try:
+            if method == "Twilio":
+                # Import Twilio here to avoid dependency issues
+                from twilio.rest import Client
+                
+                account_sid = settings.get('twilio_account_sid')
+                auth_token = settings.get('twilio_auth_token')
+                from_number = settings.get('twilio_phone_number')
+                
+                client = Client(account_sid, auth_token)
+                message_obj = client.messages.create(
+                    body=message,
+                    from_=from_number,
+                    to=recipient
+                )
+                
+                self.logger.info(f"SMS sent successfully. SID: {message_obj.sid}")
+                
+            elif method == "AWS SNS":
+                import boto3
+                
+                sns = boto3.client(
+                    'sns',
+                    aws_access_key_id=settings.get('aws_access_key'),
+                    aws_secret_access_key=settings.get('aws_secret_key'),
+                    region_name=settings.get('aws_region')
+                )
+                
+                response = sns.publish(
+                    PhoneNumber=recipient,
+                    Message=message
+                )
+                
+                self.logger.info(f"SMS sent successfully. MessageId: {response['MessageId']}")
+            
+            return True
+            
+        except Exception as e:
+            self.logger.error(f"SMS sending failed: {e}")
+            return False
 def main():
     """Main entry point for background processor"""
     parser = argparse.ArgumentParser(description='MessageHub Background Campaign Processor')

@@ -24,6 +24,12 @@ def show_sms_campaigns(parent):
     edit_btn.pack(side=tk.LEFT, padx=2)
     delete_btn = ttk.Button(btn_group, text="🗑️ Delete SMS Campaign", command=lambda: delete_sms_campaign(sms_tree))
     delete_btn.pack(side=tk.LEFT, padx=2)
+    
+    launch_btn = ttk.Button(btn_group, text="🚀 Launch Campaign", command=lambda: launch_selected_sms_campaign(sms_tree))
+    launch_btn.pack(side=tk.LEFT, padx=2)
+    
+    monitor_btn = ttk.Button(btn_group, text="📊 Monitor", command=lambda: monitor_selected_sms_campaign(sms_tree))
+    monitor_btn.pack(side=tk.LEFT, padx=2)
 
     # SMS Campaigns list
     columns = ("Name", "Message")
@@ -519,3 +525,59 @@ def send_sms_wizard(dialog, send_tree, contact_ids, campaign_name, message, prog
     sending = [True]
     threading.Thread(target=update_timer, daemon=True).start()
     threading.Thread(target=send_thread, daemon=True).start()
+
+def launch_selected_sms_campaign(tree):
+    """Launch selected SMS campaign with background/foreground options"""
+    selected = tree.selection()
+    if not selected or len(selected) != 1:
+        messagebox.showinfo("Launch SMS Campaign", "Please select exactly one campaign to launch.")
+        return
+    
+    iid = selected[0]
+    name, message = tree.item(iid, "values")
+    
+    # Get campaign ID from database
+    import sqlite3
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT id FROM sms_campaigns WHERE name=?", (name,))
+    row = c.fetchone()
+    conn.close()
+    
+    if not row:
+        messagebox.showerror("Error", "Campaign not found in database.")
+        return
+    
+    campaign_id = row[0]
+    
+    # Import and launch the campaign launcher
+    from .campaign_launcher import launch_campaign
+    launch_campaign(tree.master, campaign_id, 'sms', name)
+
+def monitor_selected_sms_campaign(tree):
+    """Monitor selected SMS campaign"""
+    selected = tree.selection()
+    if not selected or len(selected) != 1:
+        messagebox.showinfo("Monitor SMS Campaign", "Please select exactly one campaign to monitor.")
+        return
+    
+    iid = selected[0]
+    name, message = tree.item(iid, "values")
+    
+    # Get campaign ID from database
+    import sqlite3
+    conn = sqlite3.connect(DB_FILE)
+    c = conn.cursor()
+    c.execute("SELECT id FROM sms_campaigns WHERE name=?", (name,))
+    row = c.fetchone()
+    conn.close()
+    
+    if not row:
+        messagebox.showerror("Error", "Campaign not found in database.")
+        return
+    
+    campaign_id = row[0]
+    
+    # Import and monitor the campaign
+    from .campaign_launcher import monitor_campaign
+    monitor_campaign(tree.master, campaign_id, 'sms', name)

@@ -41,6 +41,11 @@ def setup_main_ui(root):
     settings_btn = ttk.Button(sidebar, text="⚙️ Settings", command=lambda: open_settings_dialog(root), width=24)
     settings_btn.pack(pady=5)
 
+    # Background campaigns manager
+    from .background_manager import show_background_campaign_manager
+    background_btn = ttk.Button(sidebar, text="🖥️ Background Jobs", command=lambda: show_background_campaign_manager(root), width=24)
+    background_btn.pack(pady=5)
+
     # Move History button to the bottom of the sidebar
     sidebar.pack_propagate(False)
     history_btn = ttk.Button(sidebar, text="📜 History", command=show_history_dialog, width=24)

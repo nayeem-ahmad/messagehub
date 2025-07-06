@@ -34,6 +34,8 @@ version.json
 
 # Background process logs and temporary files
 campaign_processor.log
+logs/
+pids/
 *.pid
 
 # Generated build/deployment scripts (templates should be tracked)

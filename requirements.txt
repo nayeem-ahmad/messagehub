@@ -2,3 +2,6 @@ pandas
 numpy
 requests
 boto3
+psutil
+twilio
+twilio
