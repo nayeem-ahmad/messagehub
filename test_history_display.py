@@ -28,13 +28,15 @@ def test_history_query():
     
     print("\n📨 Campaign Emails:")
     c.execute("""
-        SELECT h.timestamp, ct.email, c.name, '', h.status 
+        SELECT h.timestamp, ct.email, c.name, 
+               COALESCE(h.personalized_body, c.body) as body_content, 
+               h.status 
         FROM email_campaign_history h
         LEFT JOIN email_campaigns c ON h.campaign_id = c.id
         LEFT JOIN contacts ct ON h.contact_id = ct.id
         ORDER BY h.timestamp DESC
     """)
-    campaign_rows = [(row[0], row[1], f"Campaign: {row[2]}", "", row[4], "Campaign") for row in c.fetchall()]
+    campaign_rows = [(row[0], row[1], f"Campaign: {row[2]}", row[3], row[4], "Campaign") for row in c.fetchall()]
     print(f"   Found {len(campaign_rows)} campaign email records")
     
     # Combine and sort
@@ -48,6 +50,9 @@ def test_history_query():
         print(f"{i:2}. {timestamp} | {email_type:8} | {recipient:30} | {status}")
         if subject and subject.strip():
             print(f"    Subject: {subject[:50]}...")
+        if body and body.strip():
+            print(f"    Body: {body[:100]}...")
+        print()
     
     conn.close()
     print(f"\n✅ Total records available for display: {len(all_rows)}")

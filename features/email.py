@@ -531,16 +531,16 @@ def send_email_campaign(dialog, send_tree, contact_ids, campaign_name, subject, 
                     email_utils.send_email_with_connection_check('ses', {"ses_access_key": ses_access_key, "ses_secret_key": ses_secret_key, "ses_region": ses_region}, sender, None, cemail, personalized_subject, personalized_body, sender_name)
                 send_tree.set(send_tree.get_children()[idx], column="Status", value="✔️")
                 c_th.execute(
-                    "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, '')",
-                    (campaign_id, cid, 'Sent')
+                    "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error, personalized_subject, personalized_body) VALUES (?, ?, datetime('now'), ?, '', ?, ?)",
+                    (campaign_id, cid, 'Sent', personalized_subject, personalized_body)
                 )
                 conn_th.commit()
                 success += 1
             except Exception as e:
                 send_tree.set(send_tree.get_children()[idx], column="Status", value=f"❌ {e}")
                 c_th.execute(
-                    "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error) VALUES (?, ?, datetime('now'), ?, ?)",
-                    (campaign_id, cid, 'Failed', str(e))
+                    "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error, personalized_subject, personalized_body) VALUES (?, ?, datetime('now'), ?, ?, ?, ?)",
+                    (campaign_id, cid, 'Failed', str(e), personalized_subject, personalized_body)
                 )
                 conn_th.commit()
                 failed += 1

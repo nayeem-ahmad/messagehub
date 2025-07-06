@@ -1,7 +1,7 @@
 # Email History Fix Summary
 
 ## Problem Identified
-Recent emails were not showing in the history because the history display was only querying the `email_history` table (for direct contact emails) but ignoring the `email_campaign_history` table (for campaign emails).
+Recent emails were not showing in the history because the history display was only querying the `email_history` table (for direct contact emails) but ignoring the `email_campaign_history` table (for campaign emails). Additionally, the Body column was showing template placeholders instead of the actual personalized content sent to recipients.
 
 ## Root Cause Analysis
 1. **Two Separate Tables**: The application uses two different tables:
@@ -12,18 +12,14 @@ Recent emails were not showing in the history because the history display was on
    - `email_history` table: 0 records (no direct emails sent recently)
    - `email_campaign_history` table: 355 records (all recent activity was campaign emails)
 
-3. **History Display Issue**: The `features/history.py` file was only displaying records from `email_history`, completely ignoring campaign emails.
+3. **History Display Issues**: 
+   - The `features/history.py` file was only displaying records from `email_history`
+   - Campaign email body content was showing template placeholders ({{name}}) instead of actual sent content
 
-## Database Schema
-### email_history table:
-- id (INTEGER)
-- timestamp (TEXT)
-- subject (TEXT)
-- body (TEXT)
-- email (TEXT)
-- status (TEXT)
+4. **Template vs. Actual Content**: Campaign emails are stored as templates, but personalized content was not being preserved after sending
 
-### email_campaign_history table:
+## Database Schema Enhancement
+### Original email_campaign_history table:
 - id (INTEGER)
 - campaign_id (INTEGER)
 - contact_id (INTEGER)
@@ -31,34 +27,53 @@ Recent emails were not showing in the history because the history display was on
 - status (TEXT)
 - error (TEXT)
 
-## Solution Implemented
-Modified `features/history.py` to:
+### Enhanced email_campaign_history table:
+- id (INTEGER)
+- campaign_id (INTEGER)
+- contact_id (INTEGER)
+- timestamp (TEXT)
+- status (TEXT)
+- error (TEXT)
+- **personalized_subject (TEXT)** ← NEW
+- **personalized_body (TEXT)** ← NEW
 
-1. **Query Both Tables**: Added logic to query both `email_history` and `email_campaign_history` tables
-2. **JOIN Operations**: Used JOIN queries to get campaign names and contact emails from related tables
-3. **Combined Display**: Merged results from both tables and sorted by timestamp
-4. **Added Type Column**: Added a "Type" column to distinguish between "Direct" and "Campaign" emails
-5. **Enhanced Columns**: Updated column widths and added the Type field for better visibility
+## Solution Implemented
+Modified both the database schema and application logic to:
+
+1. **Database Migration**: Added `personalized_subject` and `personalized_body` columns to `email_campaign_history`
+2. **Enhanced Email Sending**: Modified campaign email sending to store the actual personalized content
+3. **Simplified History Display**: Updated history queries to use stored personalized content directly
+4. **Backward Compatibility**: Used `COALESCE()` to fall back to template content for old records
 
 ### Key Changes:
-```python
-# Direct emails
-c.execute("SELECT timestamp, email, subject, body, status FROM email_history ORDER BY timestamp DESC")
-direct_rows = [(row[0], row[1], row[2], row[3], row[4], "Direct") for row in c.fetchall()]
 
-# Campaign emails with JOIN to get campaign name and contact email
+#### 1. Database Migration (migrate_campaign_history.py):
+```sql
+ALTER TABLE email_campaign_history ADD COLUMN personalized_subject TEXT;
+ALTER TABLE email_campaign_history ADD COLUMN personalized_body TEXT;
+```
+
+#### 2. Enhanced Email Sending (features/email.py):
+```python
+# Store personalized content when email is sent successfully
+c_th.execute(
+    "INSERT INTO email_campaign_history (campaign_id, contact_id, timestamp, status, error, personalized_subject, personalized_body) VALUES (?, ?, datetime('now'), ?, '', ?, ?)",
+    (campaign_id, cid, 'Sent', personalized_subject, personalized_body)
+)
+```
+
+#### 3. Simplified History Display (features/history.py):
+```python
+# Use stored personalized content, fall back to template for old records
 c.execute("""
-    SELECT h.timestamp, ct.email, c.name, '', h.status 
+    SELECT h.timestamp, ct.email, c.name, 
+           COALESCE(h.personalized_body, c.body) as body_content, 
+           h.status 
     FROM email_campaign_history h
     LEFT JOIN email_campaigns c ON h.campaign_id = c.id
     LEFT JOIN contacts ct ON h.contact_id = ct.id
     ORDER BY h.timestamp DESC
 """)
-campaign_rows = [(row[0], row[1], f"Campaign: {row[2]}", "", row[4], "Campaign") for row in c.fetchall()]
-
-# Combine and sort by timestamp (newest first)
-all_rows = direct_rows + campaign_rows
-rows = sorted(all_rows, key=lambda x: x[0], reverse=True)[:500]
 ```
 
 ## Results
@@ -67,11 +82,23 @@ rows = sorted(all_rows, key=lambda x: x[0], reverse=True)[:500]
 - ✅ Combined view shows both types with clear labeling
 - ✅ Search functionality works across both tables
 - ✅ Proper sorting by timestamp (newest first)
+- ✅ Body column displays campaign email content
+- ✅ Improved column widths for better readability
+- ✅ **New emails store actual personalized content** (not templates)
+- ✅ **Backward compatibility**: Old records show template, new records show actual sent content
+- ✅ **Performance improvement**: No runtime template processing needed for history display
+- ✅ **Data integrity**: Exact content sent to each recipient is preserved
 
 ## Testing
 Created multiple test scripts to verify the fix:
-1. `check_history.py` - Database inspection and schema verification
-2. `test_history_display.py` - Query logic testing
-3. `test_history_dialog.py` - UI functionality testing
+1. `migrate_campaign_history.py` - Database schema migration
+2. `test_personalized_storage.py` - Verify personalized content storage
+3. `check_history.py` - Database inspection and schema verification
+4. `test_history_display.py` - Query logic testing
+5. `test_history_dialog.py` - UI functionality testing
 
-All tests confirm that the history feature now correctly displays recent campaign emails.
+All tests confirm that:
+- Database migration completed successfully
+- New emails will store personalized content
+- History feature displays both old (template) and new (personalized) content correctly
+- UI functions without errors
