@@ -183,7 +183,10 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
     contact_display_map = {cid: f"{name} <{mobile}>" for cid, name, _, mobile in all_contacts}
     sel_contact_ids = []
     if campaign and campaign.get('contact_ids'):
-        sel_contact_ids = list(campaign['contact_ids'])
+        # Filter out contact IDs that no longer exist in the database
+        all_contact_ids = {cid for cid, _, _, _ in all_contacts}
+        valid_contact_ids = [cid for cid in campaign['contact_ids'] if cid in all_contact_ids]
+        sel_contact_ids = valid_contact_ids
     def refresh_avail_list():
         avail_list.delete(0, tk.END)
         filter_text = search_var.get().lower()
@@ -197,8 +200,14 @@ def open_sms_campaign_wizard(tree, mode="add", campaign=None):
                     avail_list.insert(tk.END, f"{name} <{mobile}>")
     def refresh_sel_list():
         sel_list.delete(0, tk.END)
+        # Filter out contact IDs that no longer exist
+        valid_contact_ids = []
         for cid in sel_contact_ids:
-            sel_list.insert(tk.END, contact_display_map[cid])
+            if cid in contact_display_map:
+                sel_list.insert(tk.END, contact_display_map[cid])
+                valid_contact_ids.append(cid)
+        # Update the list to only include valid contacts
+        sel_contact_ids[:] = valid_contact_ids
     def contact_in_group(cid, group_short_name):
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
