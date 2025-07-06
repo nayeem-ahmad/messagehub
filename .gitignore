@@ -32,6 +32,10 @@ version.json
 # Template files should be tracked (safe sample data only)
 !template/
 
+# Background process logs and temporary files
+campaign_processor.log
+*.pid
+
 # Generated build/deployment scripts (templates should be tracked)
 build_exe.ps1
 deploy.ps1
