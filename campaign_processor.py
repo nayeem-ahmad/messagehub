@@ -37,15 +37,23 @@ class CampaignProcessor:
     def _setup_logging(self):
         """Setup logging for the background process"""
         log_filename = f"campaign_processor_{self.campaign_type}_{self.campaign_id}.log"
-        logging.basicConfig(
-            level=logging.INFO,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            handlers=[
-                logging.FileHandler(log_filename),
-                logging.StreamHandler(sys.stdout)
-            ]
-        )
-        return logging.getLogger(__name__)
+        
+        # Create a file handler with UTF-8 encoding to support emoji characters
+        file_handler = logging.FileHandler(log_filename, encoding='utf-8')
+        console_handler = logging.StreamHandler(sys.stdout)
+        
+        # Set format
+        formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+        
+        # Configure logger
+        logger = logging.getLogger(f'campaign_processor_{self.campaign_type}_{self.campaign_id}')
+        logger.setLevel(logging.INFO)
+        logger.addHandler(file_handler)
+        logger.addHandler(console_handler)
+        
+        return logger
         
     def _signal_handler(self, signum, frame):
         """Handle shutdown signals gracefully"""
@@ -53,31 +61,68 @@ class CampaignProcessor:
         self.running = False
         
     def update_campaign_status(self, status, details=None):
-        """Update campaign status in database"""
-        try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            
-            timestamp = datetime.now().isoformat()
-            
-            if self.campaign_type == 'email':
-                cursor.execute("""
-                    UPDATE email_campaigns 
-                    SET status = ?, last_updated = ?, processing_details = ?
-                    WHERE id = ?
-                """, (status, timestamp, details, self.campaign_id))
-            else:
-                cursor.execute("""
-                    UPDATE sms_campaigns 
-                    SET status = ?, last_updated = ?, processing_details = ?
-                    WHERE id = ?
-                """, (status, timestamp, details, self.campaign_id))
+        """Update campaign status in database with optimized concurrency"""
+        max_retries = 5
+        base_delay = 0.1  # Start with 100ms
+        
+        for attempt in range(max_retries):
+            conn = None
+            try:
+                # Quick connection with immediate commit
+                conn = sqlite3.connect(self.db_path, timeout=10.0)
                 
-            conn.commit()
-            conn.close()
-            
-        except Exception as e:
-            self.logger.error(f"Failed to update campaign status: {e}")
+                # Enable WAL mode for this connection
+                conn.execute("PRAGMA journal_mode=WAL")
+                conn.execute("PRAGMA busy_timeout=10000")  # 10 seconds
+                conn.execute("PRAGMA synchronous=NORMAL")
+                
+                cursor = conn.cursor()
+                timestamp = datetime.now().isoformat()
+                
+                # Use a single atomic operation
+                if self.campaign_type == 'email':
+                    cursor.execute("""
+                        UPDATE email_campaigns 
+                        SET status = ?, last_updated = ?, processing_details = ?
+                        WHERE id = ?
+                    """, (status, timestamp, details, self.campaign_id))
+                else:
+                    cursor.execute("""
+                        UPDATE sms_campaigns 
+                        SET status = ?, last_updated = ?, processing_details = ?
+                        WHERE id = ?
+                    """, (status, timestamp, details, self.campaign_id))
+                
+                # Immediate commit to release lock quickly
+                conn.commit()
+                
+                # Verify the update worked
+                if cursor.rowcount > 0:
+                    self.logger.debug(f"Successfully updated campaign {self.campaign_id} status to {status}")
+                    return  # Success
+                else:
+                    self.logger.warning(f"Campaign {self.campaign_id} not found for status update")
+                    return
+                
+            except sqlite3.OperationalError as e:
+                error_msg = str(e).lower()
+                if ("database is locked" in error_msg or "busy" in error_msg) and attempt < max_retries - 1:
+                    delay = base_delay * (2 ** attempt)  # Exponential backoff
+                    self.logger.info(f"Database busy, retrying in {delay:.1f}s (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(delay)
+                    continue
+                else:
+                    self.logger.error(f"Database error after {max_retries} attempts: {e}")
+                    break
+            except Exception as e:
+                self.logger.error(f"Unexpected error updating campaign status: {e}")
+                break
+            finally:
+                if conn:
+                    try:
+                        conn.close()
+                    except:
+                        pass
     
     def log_progress(self, message, level="info"):
         """Log progress with both file and database logging"""
