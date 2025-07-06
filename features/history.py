@@ -2,7 +2,169 @@ import tkinter as tk
 from tkinter import ttk
 import sqlite3
 from datetime import datetime, timedelta
+import calendar
 from .common import DB_FILE, apply_striped_rows, center_window
+
+class DateTimePicker(tk.Toplevel):
+    """Custom date and time picker dialog"""
+    def __init__(self, parent, initial_datetime=None, title="Select Date and Time"):
+        super().__init__(parent)
+        self.title(title)
+        self.transient(parent)
+        self.grab_set()
+        self.result = None
+        
+        # Set initial datetime
+        if initial_datetime:
+            self.selected_date = initial_datetime.date()
+            self.selected_time = initial_datetime.time()
+        else:
+            now = datetime.now()
+            self.selected_date = now.date()
+            self.selected_time = now.time()
+        
+        self.setup_ui()
+        center_window(self, 400, 350)
+        
+    def setup_ui(self):
+        main_frame = ttk.Frame(self, padding=10)
+        main_frame.pack(fill=tk.BOTH, expand=True)
+        
+        # Calendar frame
+        cal_frame = ttk.LabelFrame(main_frame, text="Date", padding=10)
+        cal_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 10))
+        
+        # Create calendar
+        self.create_calendar(cal_frame)
+        
+        # Time frame
+        time_frame = ttk.LabelFrame(main_frame, text="Time", padding=10)
+        time_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.create_time_selector(time_frame)
+        
+        # Buttons
+        button_frame = ttk.Frame(main_frame)
+        button_frame.pack(fill=tk.X)
+        
+        ttk.Button(button_frame, text="OK", command=self.ok_clicked).pack(side=tk.RIGHT, padx=(5, 0))
+        ttk.Button(button_frame, text="Cancel", command=self.cancel_clicked).pack(side=tk.RIGHT)
+        ttk.Button(button_frame, text="Now", command=self.set_now).pack(side=tk.LEFT)
+        
+    def create_calendar(self, parent):
+        # Year and month selection
+        year_month_frame = ttk.Frame(parent)
+        year_month_frame.pack(fill=tk.X, pady=(0, 10))
+        
+        self.year_var = tk.IntVar(value=self.selected_date.year)
+        self.month_var = tk.IntVar(value=self.selected_date.month)
+        
+        ttk.Button(year_month_frame, text="◀", width=3, command=self.prev_month).pack(side=tk.LEFT)
+        
+        month_label = ttk.Label(year_month_frame, text="")
+        month_label.pack(side=tk.LEFT, expand=True)
+        self.month_label = month_label
+        
+        ttk.Button(year_month_frame, text="▶", width=3, command=self.next_month).pack(side=tk.RIGHT)
+        
+        # Calendar grid
+        self.cal_frame = ttk.Frame(parent)
+        self.cal_frame.pack()
+        
+        self.update_calendar()
+        
+    def create_time_selector(self, parent):
+        time_controls = ttk.Frame(parent)
+        time_controls.pack()
+        
+        # Hour
+        ttk.Label(time_controls, text="Hour:").grid(row=0, column=0, padx=(0, 5))
+        self.hour_var = tk.IntVar(value=self.selected_time.hour)
+        hour_spin = ttk.Spinbox(time_controls, from_=0, to=23, textvariable=self.hour_var, width=5, format="%02.0f")
+        hour_spin.grid(row=0, column=1, padx=(0, 10))
+        
+        # Minute
+        ttk.Label(time_controls, text="Minute:").grid(row=0, column=2, padx=(0, 5))
+        self.minute_var = tk.IntVar(value=self.selected_time.minute)
+        minute_spin = ttk.Spinbox(time_controls, from_=0, to=59, textvariable=self.minute_var, width=5, format="%02.0f")
+        minute_spin.grid(row=0, column=3)
+        
+    def update_calendar(self):
+        # Clear existing calendar
+        for widget in self.cal_frame.winfo_children():
+            widget.destroy()
+            
+        # Update month label
+        month_name = calendar.month_name[self.month_var.get()]
+        self.month_label.config(text=f"{month_name} {self.year_var.get()}")
+        
+        # Day headers
+        days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+        for i, day in enumerate(days):
+            ttk.Label(self.cal_frame, text=day, font=("Segoe UI", 8, "bold")).grid(row=0, column=i, padx=1, pady=1)
+        
+        # Calendar days
+        cal = calendar.monthcalendar(self.year_var.get(), self.month_var.get())
+        self.day_buttons = {}
+        
+        for week_num, week in enumerate(cal, 1):
+            for day_num, day in enumerate(week):
+                if day == 0:
+                    continue
+                    
+                btn = tk.Button(self.cal_frame, text=str(day), width=3, height=1,
+                               command=lambda d=day: self.select_day(d))
+                btn.grid(row=week_num, column=day_num, padx=1, pady=1)
+                
+                # Highlight selected day
+                if (day == self.selected_date.day and 
+                    self.month_var.get() == self.selected_date.month and 
+                    self.year_var.get() == self.selected_date.year):
+                    btn.config(bg="#007ACC", fg="white")
+                    
+                self.day_buttons[day] = btn
+    
+    def prev_month(self):
+        if self.month_var.get() == 1:
+            self.month_var.set(12)
+            self.year_var.set(self.year_var.get() - 1)
+        else:
+            self.month_var.set(self.month_var.get() - 1)
+        self.update_calendar()
+        
+    def next_month(self):
+        if self.month_var.get() == 12:
+            self.month_var.set(1)
+            self.year_var.set(self.year_var.get() + 1)
+        else:
+            self.month_var.set(self.month_var.get() + 1)
+        self.update_calendar()
+        
+    def select_day(self, day):
+        self.selected_date = datetime(self.year_var.get(), self.month_var.get(), day).date()
+        self.update_calendar()
+        
+    def set_now(self):
+        now = datetime.now()
+        self.selected_date = now.date()
+        self.selected_time = now.time()
+        self.year_var.set(now.year)
+        self.month_var.set(now.month)
+        self.hour_var.set(now.hour)
+        self.minute_var.set(now.minute)
+        self.update_calendar()
+        
+    def ok_clicked(self):
+        # Combine date and time
+        self.result = datetime.combine(
+            self.selected_date,
+            datetime.min.time().replace(hour=self.hour_var.get(), minute=self.minute_var.get())
+        )
+        self.destroy()
+        
+    def cancel_clicked(self):
+        self.result = None
+        self.destroy()
 
 def show_history_dialog():
     hist_win = tk.Toplevel()
@@ -30,10 +192,13 @@ def show_history_dialog():
     option_var = tk.StringVar(value="Email")
     search_var = tk.StringVar()
     
-    # Date range variables (default to today)
-    today = datetime.now().date()
-    from_date_var = tk.StringVar(value=today.strftime("%Y-%m-%d"))
-    to_date_var = tk.StringVar(value=today.strftime("%Y-%m-%d"))
+    # Date/time range variables (default to today's full day)
+    today = datetime.now()
+    start_of_today = today.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_of_today = today.replace(hour=23, minute=59, second=59, microsecond=999999)
+    
+    from_datetime_var = tk.StringVar(value=start_of_today.strftime("%Y-%m-%d %H:%M"))
+    to_datetime_var = tk.StringVar(value=end_of_today.strftime("%Y-%m-%d %H:%M"))
     date_filter_enabled = tk.BooleanVar(value=True)  # Enable date filter by default
 
     top_frame = ttk.Frame(left_panel)
@@ -54,38 +219,85 @@ def show_history_dialog():
     date_controls = ttk.Frame(first_row)
     date_controls.pack(side=tk.RIGHT)
     
-    ttk.Checkbutton(date_controls, text="Date Filter:", variable=date_filter_enabled, command=lambda: load_history()).pack(side=tk.LEFT, padx=(0, 5))
-    ttk.Label(date_controls, text="From:").pack(side=tk.LEFT, padx=(5, 2))
-    from_date_entry = ttk.Entry(date_controls, textvariable=from_date_var, width=12)
-    from_date_entry.pack(side=tk.LEFT, padx=(0, 5))
-    ttk.Label(date_controls, text="To:").pack(side=tk.LEFT, padx=(5, 2))
-    to_date_entry = ttk.Entry(date_controls, textvariable=to_date_var, width=12)
-    to_date_entry.pack(side=tk.LEFT, padx=(0, 5))
+    ttk.Checkbutton(date_controls, text="DateTime Filter:", variable=date_filter_enabled, command=lambda: load_history()).pack(side=tk.LEFT, padx=(0, 5))
+    
+    # From datetime controls
+    from_frame = ttk.Frame(date_controls)
+    from_frame.pack(side=tk.LEFT, padx=(5, 0))
+    ttk.Label(from_frame, text="From:").pack(side=tk.TOP, anchor="w")
+    
+    # From input container with entry and button side by side
+    from_input_frame = ttk.Frame(from_frame)
+    from_input_frame.pack(side=tk.TOP, fill=tk.X)
+    from_datetime_entry = ttk.Entry(from_input_frame, textvariable=from_datetime_var, width=20, font=("Segoe UI", 9))
+    from_datetime_entry.pack(side=tk.LEFT, padx=(0, 2))
+    ttk.Button(from_input_frame, text="📅", width=3, command=lambda: open_datetime_picker("from")).pack(side=tk.LEFT)
+    
+    # To datetime controls  
+    to_frame = ttk.Frame(date_controls)
+    to_frame.pack(side=tk.LEFT, padx=(5, 0))
+    ttk.Label(to_frame, text="To:").pack(side=tk.TOP, anchor="w")
+    
+    # To input container with entry and button side by side
+    to_input_frame = ttk.Frame(to_frame)
+    to_input_frame.pack(side=tk.TOP, fill=tk.X)
+    to_datetime_entry = ttk.Entry(to_input_frame, textvariable=to_datetime_var, width=20, font=("Segoe UI", 9))
+    to_datetime_entry.pack(side=tk.LEFT, padx=(0, 2))
+    ttk.Button(to_input_frame, text="📅", width=3, command=lambda: open_datetime_picker("to")).pack(side=tk.LEFT)
+    
+    def open_datetime_picker(field_type):
+        """Open the custom datetime picker"""
+        current_value = from_datetime_var.get() if field_type == "from" else to_datetime_var.get()
+        try:
+            initial_dt = datetime.strptime(current_value, "%Y-%m-%d %H:%M")
+        except ValueError:
+            initial_dt = datetime.now()
+            
+        picker = DateTimePicker(hist_win, initial_dt, f"Select {field_type.title()} DateTime")
+        hist_win.wait_window(picker)
+        
+        if picker.result:
+            formatted_dt = picker.result.strftime("%Y-%m-%d %H:%M")
+            if field_type == "from":
+                from_datetime_var.set(formatted_dt)
+            else:
+                to_datetime_var.set(formatted_dt)
+            load_history()
     
     # Quick date buttons
     quick_dates = ttk.Frame(date_controls)
     quick_dates.pack(side=tk.LEFT, padx=(10, 0))
     
     def set_today():
-        today = datetime.now().date()
-        from_date_var.set(today.strftime("%Y-%m-%d"))
-        to_date_var.set(today.strftime("%Y-%m-%d"))
+        today = datetime.now()
+        start_of_today = today.replace(hour=0, minute=0, second=0, microsecond=0)
+        end_of_today = today.replace(hour=23, minute=59, second=59, microsecond=999999)
+        from_datetime_var.set(start_of_today.strftime("%Y-%m-%d %H:%M"))
+        to_datetime_var.set(end_of_today.strftime("%Y-%m-%d %H:%M"))
+        date_filter_enabled.set(True)
+        load_history()
+    
+    def set_last_24_hours():
+        now = datetime.now()
+        day_ago = now - timedelta(hours=24)
+        from_datetime_var.set(day_ago.strftime("%Y-%m-%d %H:%M"))
+        to_datetime_var.set(now.strftime("%Y-%m-%d %H:%M"))
         date_filter_enabled.set(True)
         load_history()
     
     def set_last_7_days():
-        today = datetime.now().date()
+        today = datetime.now()
         week_ago = today - timedelta(days=7)
-        from_date_var.set(week_ago.strftime("%Y-%m-%d"))
-        to_date_var.set(today.strftime("%Y-%m-%d"))
+        from_datetime_var.set(week_ago.replace(hour=0, minute=0).strftime("%Y-%m-%d %H:%M"))
+        to_datetime_var.set(today.replace(hour=23, minute=59).strftime("%Y-%m-%d %H:%M"))
         date_filter_enabled.set(True)
         load_history()
     
     def set_last_30_days():
-        today = datetime.now().date()
+        today = datetime.now()
         month_ago = today - timedelta(days=30)
-        from_date_var.set(month_ago.strftime("%Y-%m-%d"))
-        to_date_var.set(today.strftime("%Y-%m-%d"))
+        from_datetime_var.set(month_ago.replace(hour=0, minute=0).strftime("%Y-%m-%d %H:%M"))
+        to_datetime_var.set(today.replace(hour=23, minute=59).strftime("%Y-%m-%d %H:%M"))
         date_filter_enabled.set(True)
         load_history()
     
@@ -94,6 +306,7 @@ def show_history_dialog():
         load_history()
     
     ttk.Button(quick_dates, text="Today", command=set_today, width=8).pack(side=tk.LEFT, padx=1)
+    ttk.Button(quick_dates, text="24hrs", command=set_last_24_hours, width=8).pack(side=tk.LEFT, padx=1)
     ttk.Button(quick_dates, text="7 Days", command=set_last_7_days, width=8).pack(side=tk.LEFT, padx=1)
     ttk.Button(quick_dates, text="30 Days", command=set_last_30_days, width=8).pack(side=tk.LEFT, padx=1)
     ttk.Button(quick_dates, text="All", command=set_all_records, width=8).pack(side=tk.LEFT, padx=1)
@@ -106,9 +319,9 @@ def show_history_dialog():
     search_entry = ttk.Entry(second_row, textvariable=search_var, width=40)
     search_entry.pack(side=tk.LEFT)
     
-    # Bind date entry changes to load_history
-    from_date_entry.bind("<KeyRelease>", lambda e: load_history())
-    to_date_entry.bind("<KeyRelease>", lambda e: load_history())
+    # Bind datetime entry changes to load_history
+    from_datetime_entry.bind("<KeyRelease>", lambda e: load_history())
+    to_datetime_entry.bind("<KeyRelease>", lambda e: load_history())
 
     # Treeview with scrollbars in left panel
     tree_frame = ttk.Frame(left_panel)
@@ -282,20 +495,23 @@ def show_history_dialog():
             
             query = search_var.get().strip().lower()
             
-            # Build date filter conditions
+            # Build datetime filter conditions
             date_conditions = ""
             date_params = []
             if date_filter_enabled.get():
                 try:
-                    from_date = from_date_var.get()
-                    to_date = to_date_var.get()
-                    # Validate date format
-                    datetime.strptime(from_date, "%Y-%m-%d")
-                    datetime.strptime(to_date, "%Y-%m-%d")
-                    date_conditions = " AND DATE(timestamp) BETWEEN ? AND ?"
-                    date_params = [from_date, to_date]
+                    from_datetime_str = from_datetime_var.get()
+                    to_datetime_str = to_datetime_var.get()
+                    # Validate datetime format
+                    from_dt = datetime.strptime(from_datetime_str, "%Y-%m-%d %H:%M")
+                    to_dt = datetime.strptime(to_datetime_str, "%Y-%m-%d %H:%M")
+                    # Convert to strings for SQL comparison
+                    from_timestamp = from_dt.strftime("%Y-%m-%d %H:%M:%S")
+                    to_timestamp = to_dt.strftime("%Y-%m-%d %H:%M:%S")
+                    date_conditions = " AND timestamp BETWEEN ? AND ?"
+                    date_params = [from_timestamp, to_timestamp]
                 except ValueError:
-                    # Invalid date format, ignore date filter
+                    # Invalid datetime format, ignore date filter
                     date_conditions = ""
                     date_params = []
             
@@ -391,20 +607,23 @@ def show_history_dialog():
                     tree.column(col, width=100)
             query = search_var.get().strip().lower()
             
-            # Build date filter conditions for SMS
+            # Build datetime filter conditions for SMS
             sms_date_conditions = ""
             sms_date_params = []
             if date_filter_enabled.get():
                 try:
-                    from_date = from_date_var.get()
-                    to_date = to_date_var.get()
-                    # Validate date format
-                    datetime.strptime(from_date, "%Y-%m-%d")
-                    datetime.strptime(to_date, "%Y-%m-%d")
-                    sms_date_conditions = " AND DATE(timestamp) BETWEEN ? AND ?"
-                    sms_date_params = [from_date, to_date]
+                    from_datetime_str = from_datetime_var.get()
+                    to_datetime_str = to_datetime_var.get()
+                    # Validate datetime format
+                    from_dt = datetime.strptime(from_datetime_str, "%Y-%m-%d %H:%M")
+                    to_dt = datetime.strptime(to_datetime_str, "%Y-%m-%d %H:%M")
+                    # Convert to strings for SQL comparison
+                    from_timestamp = from_dt.strftime("%Y-%m-%d %H:%M:%S")
+                    to_timestamp = to_dt.strftime("%Y-%m-%d %H:%M:%S")
+                    sms_date_conditions = " AND timestamp BETWEEN ? AND ?"
+                    sms_date_params = [from_timestamp, to_timestamp]
                 except ValueError:
-                    # Invalid date format, ignore date filter
+                    # Invalid datetime format, ignore date filter
                     sms_date_conditions = ""
                     sms_date_params = []
             
