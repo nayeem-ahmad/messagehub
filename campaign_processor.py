@@ -233,9 +233,10 @@ class CampaignProcessor:
         """Send individual email with error handling"""
         try:
             if method == "SMTP":
-                email_utils.send_smtp_email(
+                # Use the simplified SMTP function for better error handling
+                email_utils.send_email_smtp_simple(
                     settings.get('smtp_server'),
-                    int(settings.get('smtp_port', 587)),
+                    settings.get('smtp_port', 587),
                     settings.get('sender_email'),
                     settings.get('sender_pwd'),
                     recipient,
@@ -244,22 +245,24 @@ class CampaignProcessor:
                     settings.get('sender_name', '')
                 )
             elif method == "SendGrid":
-                email_utils.send_sendgrid_email(
+                email_utils.send_email_sendgrid(
                     settings.get('sendgrid_api_key'),
                     settings.get('sender_email'),
                     recipient,
                     subject,
-                    body
+                    body,
+                    settings.get('sender_name', '')
                 )
             elif method == "Amazon SES":
-                email_utils.send_ses_email(
+                email_utils.send_email_ses(
                     settings.get('ses_access_key'),
                     settings.get('ses_secret_key'),
                     settings.get('ses_region'),
                     settings.get('sender_email'),
                     recipient,
                     subject,
-                    body
+                    body,
+                    settings.get('sender_name', '')
                 )
             return True
             

@@ -29,10 +29,33 @@ def send_email_smtp(smtp_settings, sender, password, recipient, subject, body, s
     def _send():
         server = None
         try:
+            # Validate inputs
+            if not smtp_settings.get("server"):
+                raise ValueError("SMTP server not specified")
+            if not smtp_settings.get("port"):
+                raise ValueError("SMTP port not specified")
+            
+            # Create SMTP connection
+            print(f"Connecting to SMTP server: {smtp_settings['server']}:{smtp_settings['port']}")
             server = smtplib.SMTP(smtp_settings["server"], smtp_settings["port"])
-            server.settimeout(30)  # 30 second timeout
+            
+            # Set timeout using the correct method
+            # Note: Python's smtplib.SMTP doesn't have settimeout() method
+            # Instead, we set the timeout on the underlying socket or use constructor timeout
+            try:
+                if hasattr(server, 'sock') and server.sock:
+                    server.sock.settimeout(30)
+                elif hasattr(server, '_get_socket'):
+                    # Alternative approach - recreate with timeout
+                    server.quit()
+                    server = smtplib.SMTP(smtp_settings["server"], smtp_settings["port"], timeout=30)
+            except Exception as timeout_error:
+                print(f"Warning: Could not set timeout: {timeout_error}")
+                # Continue without timeout if it fails
             server.starttls()
             server.login(sender, password)
+            
+            # Create message
             msg = MIMEText(body)
             msg['Subject'] = subject
             # Format the From field with display name if provided
@@ -41,8 +64,18 @@ def send_email_smtp(smtp_settings, sender, password, recipient, subject, body, s
             else:
                 msg['From'] = sender
             msg['To'] = recipient
+            
+            # Send email
             server.sendmail(sender, recipient, msg.as_string())
+            print(f"Email sent successfully to {recipient}")
             return True
+            
+        except Exception as e:
+            print(f"SMTP error details: {type(e).__name__}: {str(e)}")
+            if server:
+                print(f"Server object type: {type(server)}")
+                print(f"Server object attributes: {dir(server)}")
+            raise e
         finally:
             if server:
                 try:
@@ -162,3 +195,80 @@ def send_email_with_connection_check(method, settings, sender, password, recipie
     
     # Proceed with sending email
     return send_email(method, settings, sender, password, recipient, subject, body, sender_name)
+
+def send_email_smtp_simple(smtp_server, smtp_port, sender, password, recipient, subject, body, sender_name=None):
+    """
+    Simplified SMTP email sending with better error handling
+    Direct function without retry wrapper for better error diagnosis
+    """
+    server = None
+    try:
+        # Input validation
+        if not smtp_server or not smtp_port:
+            raise ValueError("SMTP server and port must be specified")
+        
+        print(f"📧 Attempting SMTP connection to {smtp_server}:{smtp_port}")
+        
+        # Try different SMTP approaches
+        try:
+            # Standard SMTP connection with timeout in constructor
+            server = smtplib.SMTP(smtp_server, int(smtp_port), timeout=30)
+        except Exception as e:
+            print(f"❌ SMTP with timeout failed: {e}")
+            try:
+                # Fallback to standard SMTP connection
+                server = smtplib.SMTP(smtp_server, int(smtp_port))
+            except Exception as e2:
+                print(f"❌ Standard SMTP failed: {e2}")
+                raise e2
+        
+        if not server:
+            raise ConnectionError("Failed to create SMTP connection")
+        
+        print(f"✅ SMTP connection established: {type(server)}")
+        
+        # Set additional timeout on socket if available
+        try:
+            if hasattr(server, 'sock') and server.sock:
+                server.sock.settimeout(30)
+                print("✅ Socket timeout set to 30 seconds")
+        except Exception as e:
+            print(f"⚠️ Warning: Could not set socket timeout: {e}")
+        
+        # Start TLS
+        print("🔐 Starting TLS...")
+        server.starttls()
+        
+        # Login
+        print("🔑 Logging in...")
+        server.login(sender, password)
+        
+        # Prepare message
+        print("📝 Preparing message...")
+        msg = MIMEText(body)
+        msg['Subject'] = subject
+        if sender_name:
+            msg['From'] = f'"{sender_name}" <{sender}>'
+        else:
+            msg['From'] = sender
+        msg['To'] = recipient
+        
+        # Send email
+        print(f"📤 Sending email to {recipient}...")
+        server.sendmail(sender, recipient, msg.as_string())
+        
+        print("✅ Email sent successfully!")
+        return True
+        
+    except Exception as e:
+        error_msg = f"❌ SMTP sending failed: {type(e).__name__}: {str(e)}"
+        print(error_msg)
+        raise Exception(error_msg)
+        
+    finally:
+        if server:
+            try:
+                print("🔌 Closing SMTP connection...")
+                server.quit()
+            except Exception as e:
+                print(f"⚠️ Warning: Error closing SMTP connection: {e}")
