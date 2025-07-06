@@ -57,6 +57,9 @@ MessageHub/
 
 ### For Developers
 ```powershell
+# Verify clean setup before building
+.\verify_clean_installer.ps1
+
 # Build installer - includes templates, excludes user data
 .\deploy.ps1
 ```

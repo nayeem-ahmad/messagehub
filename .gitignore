@@ -21,11 +21,15 @@ installer_output/
 # PyInstaller generated files
 *.spec
 
-# Application data and private configuration
+# Application data and private configuration (NEVER include real user data)
 private/
 version.json
 
-# Template files should be tracked
+# Make sure NO real databases are tracked anywhere
+*.db
+!template/private/contacts_sample.db
+
+# Template files should be tracked (safe sample data only)
 !template/
 
 # Generated build/deployment scripts (templates should be tracked)
