@@ -158,6 +158,12 @@ def open_email_campaign_wizard(tree, mode="add", campaign=None):
     import tkinter as tk
     from tkinter import ttk, messagebox
     import sqlite3
+    
+    # Get default content from settings for new campaigns
+    settings = get_settings()
+    default_subject = settings.get('default_subject', '') if mode == "add" else ''
+    default_body = settings.get('default_body', '') if mode == "add" else ''
+    
     dialog = tk.Toplevel(tree.master)
     dialog.title("Add Email Campaign" if mode=="add" else "Edit Email Campaign")
     dialog.geometry("900x600")
@@ -169,10 +175,11 @@ def open_email_campaign_wizard(tree, mode="add", campaign=None):
     # Step 1: Details
     step1 = ttk.Frame(notebook)
     notebook.add(step1, text="1. Details")
+    
+    # Use default content for new campaigns, existing content for edits
     name_var = tk.StringVar(value=campaign['name'] if campaign else "")
-    subject_var = tk.StringVar(value=campaign['subject'] if campaign else "")
-    body_text = tk.Text(step1, width=80, height=8)
-    body_text.insert(tk.END, campaign['body'] if campaign else "")
+    subject_var = tk.StringVar(value=campaign['subject'] if campaign else default_subject)
+    
     details_header = ttk.Label(step1, text="Email Campaign Details", font=("Segoe UI", 14, "bold"))
     details_header.grid(row=0, column=0, columnspan=2, sticky=tk.W, pady=(10, 0), padx=10)
     ttk.Label(step1, text="Campaign Name *", font=("Segoe UI", 10)).grid(row=1, column=0, sticky=tk.W, pady=10, padx=10)
@@ -183,6 +190,10 @@ def open_email_campaign_wizard(tree, mode="add", campaign=None):
     subject_entry = ttk.Entry(step1, textvariable=subject_var, width=60, font=("Segoe UI", 10))
     subject_entry.grid(row=2, column=1, pady=10, padx=10, sticky=tk.W)
     ttk.Label(step1, text="Body *", font=("Segoe UI", 10)).grid(row=3, column=0, sticky=tk.NW, pady=10, padx=10)
+    
+    # Create text widget with better font and styling
+    body_text = tk.Text(step1, width=80, height=8, font=("Segoe UI", 10), wrap="word", undo=True)
+    body_text.insert(tk.END, campaign['body'] if campaign else default_body)
     body_text.configure(font=("Segoe UI", 10))
     step1.grid_rowconfigure(3, weight=1)
     step1.grid_columnconfigure(1, weight=1)

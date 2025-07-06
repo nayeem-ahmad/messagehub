@@ -45,6 +45,7 @@ icon.png
 # Test and verification scripts (generated, but keep version_manager.ps1)
 test_version_management.ps1
 verify_installer_setup.ps1
+verify_clean_installer.ps1
 
 # IDE and editor files
 .vscode/
