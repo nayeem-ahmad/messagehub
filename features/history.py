@@ -1,6 +1,7 @@
 import tkinter as tk
 from tkinter import ttk
 import sqlite3
+from datetime import datetime, timedelta
 from .common import DB_FILE, apply_striped_rows, center_window
 
 def show_history_dialog():
@@ -28,23 +29,86 @@ def show_history_dialog():
     # Top controls in left panel
     option_var = tk.StringVar(value="Email")
     search_var = tk.StringVar()
+    
+    # Date range variables (default to today)
+    today = datetime.now().date()
+    from_date_var = tk.StringVar(value=today.strftime("%Y-%m-%d"))
+    to_date_var = tk.StringVar(value=today.strftime("%Y-%m-%d"))
+    date_filter_enabled = tk.BooleanVar(value=True)  # Enable date filter by default
 
     top_frame = ttk.Frame(left_panel)
     top_frame.pack(fill=tk.X, pady=(0, 10))
 
-    # Radio buttons and search
-    controls_left = ttk.Frame(top_frame)
+    # First row: Radio buttons and date filter controls
+    first_row = ttk.Frame(top_frame)
+    first_row.pack(fill=tk.X, pady=(0, 5))
+    
+    # Radio buttons
+    controls_left = ttk.Frame(first_row)
     controls_left.pack(side=tk.LEFT)
     
     ttk.Radiobutton(controls_left, text="Email", variable=option_var, value="Email", command=lambda: load_history()).pack(side=tk.LEFT)
     ttk.Radiobutton(controls_left, text="SMS", variable=option_var, value="SMS", command=lambda: load_history()).pack(side=tk.LEFT, padx=(10,0))
 
-    controls_right = ttk.Frame(top_frame)
-    controls_right.pack(side=tk.RIGHT)
+    # Date filter controls
+    date_controls = ttk.Frame(first_row)
+    date_controls.pack(side=tk.RIGHT)
     
-    ttk.Label(controls_right, text="Search:").pack(side=tk.LEFT, padx=(0, 5))
-    search_entry = ttk.Entry(controls_right, textvariable=search_var, width=40)
+    ttk.Checkbutton(date_controls, text="Date Filter:", variable=date_filter_enabled, command=lambda: load_history()).pack(side=tk.LEFT, padx=(0, 5))
+    ttk.Label(date_controls, text="From:").pack(side=tk.LEFT, padx=(5, 2))
+    from_date_entry = ttk.Entry(date_controls, textvariable=from_date_var, width=12)
+    from_date_entry.pack(side=tk.LEFT, padx=(0, 5))
+    ttk.Label(date_controls, text="To:").pack(side=tk.LEFT, padx=(5, 2))
+    to_date_entry = ttk.Entry(date_controls, textvariable=to_date_var, width=12)
+    to_date_entry.pack(side=tk.LEFT, padx=(0, 5))
+    
+    # Quick date buttons
+    quick_dates = ttk.Frame(date_controls)
+    quick_dates.pack(side=tk.LEFT, padx=(10, 0))
+    
+    def set_today():
+        today = datetime.now().date()
+        from_date_var.set(today.strftime("%Y-%m-%d"))
+        to_date_var.set(today.strftime("%Y-%m-%d"))
+        date_filter_enabled.set(True)
+        load_history()
+    
+    def set_last_7_days():
+        today = datetime.now().date()
+        week_ago = today - timedelta(days=7)
+        from_date_var.set(week_ago.strftime("%Y-%m-%d"))
+        to_date_var.set(today.strftime("%Y-%m-%d"))
+        date_filter_enabled.set(True)
+        load_history()
+    
+    def set_last_30_days():
+        today = datetime.now().date()
+        month_ago = today - timedelta(days=30)
+        from_date_var.set(month_ago.strftime("%Y-%m-%d"))
+        to_date_var.set(today.strftime("%Y-%m-%d"))
+        date_filter_enabled.set(True)
+        load_history()
+    
+    def set_all_records():
+        date_filter_enabled.set(False)
+        load_history()
+    
+    ttk.Button(quick_dates, text="Today", command=set_today, width=8).pack(side=tk.LEFT, padx=1)
+    ttk.Button(quick_dates, text="7 Days", command=set_last_7_days, width=8).pack(side=tk.LEFT, padx=1)
+    ttk.Button(quick_dates, text="30 Days", command=set_last_30_days, width=8).pack(side=tk.LEFT, padx=1)
+    ttk.Button(quick_dates, text="All", command=set_all_records, width=8).pack(side=tk.LEFT, padx=1)
+
+    # Second row: Search controls
+    second_row = ttk.Frame(top_frame)
+    second_row.pack(fill=tk.X)
+    
+    ttk.Label(second_row, text="Search:").pack(side=tk.LEFT, padx=(0, 5))
+    search_entry = ttk.Entry(second_row, textvariable=search_var, width=40)
     search_entry.pack(side=tk.LEFT)
+    
+    # Bind date entry changes to load_history
+    from_date_entry.bind("<KeyRelease>", lambda e: load_history())
+    to_date_entry.bind("<KeyRelease>", lambda e: load_history())
 
     # Treeview with scrollbars in left panel
     tree_frame = ttk.Frame(left_panel)
@@ -218,10 +282,28 @@ def show_history_dialog():
             
             query = search_var.get().strip().lower()
             
+            # Build date filter conditions
+            date_conditions = ""
+            date_params = []
+            if date_filter_enabled.get():
+                try:
+                    from_date = from_date_var.get()
+                    to_date = to_date_var.get()
+                    # Validate date format
+                    datetime.strptime(from_date, "%Y-%m-%d")
+                    datetime.strptime(to_date, "%Y-%m-%d")
+                    date_conditions = " AND DATE(timestamp) BETWEEN ? AND ?"
+                    date_params = [from_date, to_date]
+                except ValueError:
+                    # Invalid date format, ignore date filter
+                    date_conditions = ""
+                    date_params = []
+            
             # Get data from both tables and combine them
             if query:
-                # Direct emails
-                c.execute("SELECT timestamp, email, subject, body, status FROM email_history")
+                # Direct emails with date filter
+                direct_query = f"SELECT timestamp, email, subject, body, status FROM email_history WHERE 1=1{date_conditions}"
+                c.execute(direct_query, date_params)
                 direct_data = c.fetchall()
                 direct_rows = []
                 for row in direct_data:
@@ -231,15 +313,17 @@ def show_history_dialog():
                         body_preview = (body[:50] + "...") if body and len(body) > 50 else (body or "")
                         direct_rows.append((timestamp, email, subject, body_preview, status, "Direct", body))  # Store full body
                 
-                # Campaign emails with JOIN to get campaign name, contact email, and stored personalized content
-                c.execute("""
+                # Campaign emails with JOIN and date filter
+                campaign_query = f"""
                     SELECT h.timestamp, ct.email, c.name, 
                            COALESCE(h.personalized_body, c.body) as body_content, 
                            h.status 
                     FROM email_campaign_history h
                     LEFT JOIN email_campaigns c ON h.campaign_id = c.id
                     LEFT JOIN contacts ct ON h.contact_id = ct.id
-                """)
+                    WHERE 1=1{date_conditions}
+                """
+                c.execute(campaign_query, date_params)
                 campaign_data = c.fetchall()
                 campaign_rows = []
                 for row in campaign_data:
@@ -251,8 +335,9 @@ def show_history_dialog():
                 
                 rows = direct_rows + campaign_rows
             else:
-                # Direct emails
-                c.execute("SELECT timestamp, email, subject, body, status FROM email_history ORDER BY timestamp DESC")
+                # Direct emails with date filter
+                direct_query = f"SELECT timestamp, email, subject, body, status FROM email_history WHERE 1=1{date_conditions} ORDER BY timestamp DESC"
+                c.execute(direct_query, date_params)
                 direct_data = c.fetchall()
                 direct_rows = []
                 for row in direct_data:
@@ -261,16 +346,18 @@ def show_history_dialog():
                     body_preview = (body[:50] + "...") if body and len(body) > 50 else (body or "")
                     direct_rows.append((timestamp, email, subject, body_preview, status, "Direct", body))  # Store full body
                 
-                # Campaign emails with JOIN to get campaign name, contact email, and stored personalized content
-                c.execute("""
+                # Campaign emails with JOIN and date filter
+                campaign_query = f"""
                     SELECT h.timestamp, ct.email, c.name, 
                            COALESCE(h.personalized_body, c.body) as body_content, 
                            h.status 
                     FROM email_campaign_history h
                     LEFT JOIN email_campaigns c ON h.campaign_id = c.id
                     LEFT JOIN contacts ct ON h.contact_id = ct.id
+                    WHERE 1=1{date_conditions}
                     ORDER BY h.timestamp DESC
-                """)
+                """
+                c.execute(campaign_query, date_params)
                 campaign_data = c.fetchall()
                 campaign_rows = []
                 for row in campaign_data:
@@ -303,8 +390,27 @@ def show_history_dialog():
                 elif col == "Status":
                     tree.column(col, width=100)
             query = search_var.get().strip().lower()
+            
+            # Build date filter conditions for SMS
+            sms_date_conditions = ""
+            sms_date_params = []
+            if date_filter_enabled.get():
+                try:
+                    from_date = from_date_var.get()
+                    to_date = to_date_var.get()
+                    # Validate date format
+                    datetime.strptime(from_date, "%Y-%m-%d")
+                    datetime.strptime(to_date, "%Y-%m-%d")
+                    sms_date_conditions = " AND DATE(timestamp) BETWEEN ? AND ?"
+                    sms_date_params = [from_date, to_date]
+                except ValueError:
+                    # Invalid date format, ignore date filter
+                    sms_date_conditions = ""
+                    sms_date_params = []
+            
             if query:
-                c.execute("SELECT timestamp, recipient, body, status FROM sms_history")
+                sms_query = f"SELECT timestamp, recipient, body, status FROM sms_history WHERE 1=1{sms_date_conditions}"
+                c.execute(sms_query, sms_date_params)
                 sms_data = c.fetchall()
                 rows = []
                 for row in sms_data:
@@ -314,7 +420,8 @@ def show_history_dialog():
                         body_preview = (body[:50] + "...") if body and len(body) > 50 else (body or "")
                         rows.append((timestamp, recipient, body_preview, status, body))  # Store full body
             else:
-                c.execute("SELECT timestamp, recipient, body, status FROM sms_history ORDER BY id DESC LIMIT 500")
+                sms_query = f"SELECT timestamp, recipient, body, status FROM sms_history WHERE 1=1{sms_date_conditions} ORDER BY id DESC LIMIT 500"
+                c.execute(sms_query, sms_date_params)
                 sms_data = c.fetchall()
                 rows = []
                 for row in sms_data:
