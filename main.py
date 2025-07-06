@@ -1,5 +1,6 @@
 import sys
 import os
+import json
 
 if getattr(sys, 'frozen', False):
     BASE_DIR = os.path.dirname(sys.executable)
@@ -10,6 +11,20 @@ PRIVATE_DIR = os.path.join(BASE_DIR, "private")
 SETTINGS_FILE = os.path.join(PRIVATE_DIR, "settings.json")
 COLUMN_WIDTHS_FILE = os.path.join(PRIVATE_DIR, "column_widths.json")
 DB_FILE = os.path.join(PRIVATE_DIR, "contacts.db")
+
+# Get application version
+def get_app_version():
+    version_file = os.path.join(BASE_DIR, "version.json")
+    try:
+        if os.path.exists(version_file):
+            with open(version_file, 'r', encoding='utf-8') as f:
+                version_data = json.load(f)
+                return version_data.get('version', '1.0.0')
+    except:
+        pass
+    return '1.0.0'
+
+APP_VERSION = get_app_version()
 
 from tkinter import Tk
 import tkinter as tk

@@ -1,8 +1,63 @@
-build_exe.ps1
-installer.iss
-NaCaZoMessageHub.spec
+# .gitignore for MessageHub
+
+# Python
 __pycache__/
-# Ignore everything in private, build, and dist folders
-private/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Build and distribution
 build/
 dist/
+*.egg-info/
+installer_output/
+
+# PyInstaller generated files
+*.spec
+
+# Application data and private configuration
+private/
+version.json
+
+# Generated build/deployment scripts (templates should be tracked)
+build_exe.ps1
+deploy.ps1
+update_installer_version.ps1
+installer.iss
+
+# Generated icon files (keep create_icon.py template)
+icon.ico
+icon.png
+
+# Test and verification scripts (generated, but keep version_manager.ps1)
+test_version_management.ps1
+verify_installer_setup.ps1
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp

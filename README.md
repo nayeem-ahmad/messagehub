@@ -50,6 +50,39 @@ python main.py
 8. **Send campaigns**
 - Select contacts and use the Email or SMS campaign features.
 
+## Building and Deployment
+
+### Quick Build
+```powershell
+# Build with automatic patch version increment
+.\deploy.ps1
+
+# Build with minor version increment (for new features)
+.\deploy.ps1 -IncrementVersion minor
+
+# Build with major version increment (for breaking changes)
+.\deploy.ps1 -IncrementVersion major
+```
+
+### Version Management
+```powershell
+# Check current version
+.\version_manager.ps1 -Action get
+
+# Set specific version
+.\deploy.ps1 -Version "2.1.0"
+
+# Build without version increment
+.\deploy.ps1 -NoVersionIncrement
+```
+
+For complete version management documentation, see [VERSION_MANAGEMENT.md](VERSION_MANAGEMENT.md).
+
+### Build Options
+- `.\deploy.ps1 -BuildOnly` - Build executable only
+- `.\deploy.ps1 -InstallerOnly` - Create installer only
+- `.\deploy.ps1 -Clean` - Clean previous builds first
+
 ## Notes
 - All sensitive files (settings, CSVs, etc.) are stored in the `private/` folder and are not tracked by git.
 - If you move to a new machine, copy the `private/` folder as well.
