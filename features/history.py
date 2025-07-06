@@ -44,6 +44,7 @@ def show_history_dialog():
         conn = sqlite3.connect(DB_FILE)
         c = conn.cursor()
         if option_var.get() == "Email":
+            # Ensure email_history table exists
             c.execute("""CREATE TABLE IF NOT EXISTS email_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 timestamp TEXT,
@@ -52,18 +53,53 @@ def show_history_dialog():
                 email TEXT,
                 status TEXT
             )""")
-            columns = ("Timestamp", "Recipient", "Subject", "Body", "Status")
+            # Note: email_campaign_history table already exists with schema:
+            # id, campaign_id, contact_id, timestamp, status, error
+            
+            columns = ("Timestamp", "Recipient", "Subject", "Body", "Status", "Type")
             tree.configure(columns=columns)
             for col in columns:
                 tree.heading(col, text=col)
-                tree.column(col, width=150)
+                tree.column(col, width=120)
+            
             query = search_var.get().strip().lower()
+            
+            # Get data from both tables and combine them
             if query:
+                # Direct emails
                 c.execute("SELECT timestamp, email, subject, body, status FROM email_history")
-                rows = [row for row in c.fetchall() if any(query in str(field).lower() for field in row)]
+                direct_rows = [(row[0], row[1], row[2], row[3], row[4], "Direct") for row in c.fetchall() 
+                              if any(query in str(field).lower() for field in row)]
+                
+                # Campaign emails with JOIN to get campaign name and contact email
+                c.execute("""
+                    SELECT h.timestamp, ct.email, c.name, '', h.status 
+                    FROM email_campaign_history h
+                    LEFT JOIN email_campaigns c ON h.campaign_id = c.id
+                    LEFT JOIN contacts ct ON h.contact_id = ct.id
+                """)
+                campaign_rows = [(row[0], row[1], f"Campaign: {row[2]}", "", row[4], "Campaign") for row in c.fetchall() 
+                                if any(query in str(field).lower() for field in row)]
+                
+                rows = direct_rows + campaign_rows
             else:
-                c.execute("SELECT timestamp, email, subject, body, status FROM email_history ORDER BY id DESC LIMIT 500")
-                rows = c.fetchall()
+                # Direct emails
+                c.execute("SELECT timestamp, email, subject, body, status FROM email_history ORDER BY timestamp DESC")
+                direct_rows = [(row[0], row[1], row[2], row[3], row[4], "Direct") for row in c.fetchall()]
+                
+                # Campaign emails with JOIN to get campaign name and contact email
+                c.execute("""
+                    SELECT h.timestamp, ct.email, c.name, '', h.status 
+                    FROM email_campaign_history h
+                    LEFT JOIN email_campaigns c ON h.campaign_id = c.id
+                    LEFT JOIN contacts ct ON h.contact_id = ct.id
+                    ORDER BY h.timestamp DESC
+                """)
+                campaign_rows = [(row[0], row[1], f"Campaign: {row[2]}", "", row[4], "Campaign") for row in c.fetchall()]
+                
+                # Combine and sort by timestamp (newest first)
+                all_rows = direct_rows + campaign_rows
+                rows = sorted(all_rows, key=lambda x: x[0], reverse=True)[:500]
         else:
             c.execute("""CREATE TABLE IF NOT EXISTS sms_history (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
