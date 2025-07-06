@@ -25,6 +25,9 @@ installer_output/
 private/
 version.json
 
+# Template files should be tracked
+!template/
+
 # Generated build/deployment scripts (templates should be tracked)
 build_exe.ps1
 deploy.ps1

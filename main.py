@@ -26,23 +26,48 @@ def get_app_version():
 
 APP_VERSION = get_app_version()
 
+def setup_default_files():
+    """Setup default files from templates if they don't exist"""
+    # Ensure private folder exists
+    if not os.path.exists(PRIVATE_DIR):
+        os.makedirs(PRIVATE_DIR)
+    
+    template_dir = os.path.join(BASE_DIR, "template", "private")
+    
+    # Setup default files from templates
+    template_files = {
+        "settings.json": "settings_template.json",
+        "column_widths.json": "column_widths_template.json",
+        "contacts.db": "contacts_sample.db"
+    }
+    
+    for target_file, template_file in template_files.items():
+        target_path = os.path.join(PRIVATE_DIR, target_file)
+        template_path = os.path.join(template_dir, template_file)
+        
+        # Only create if target doesn't exist
+        if not os.path.exists(target_path):
+            if os.path.exists(template_path):
+                # Copy template file
+                import shutil
+                shutil.copy2(template_path, target_path)
+            else:
+                # Create minimal default for critical files
+                if target_file == "settings.json":
+                    with open(target_path, "w", encoding="utf-8") as f:
+                        f.write("{}")
+                elif target_file == "column_widths.json":
+                    with open(target_path, "w", encoding="utf-8") as f:
+                        f.write("{}")
+
 from tkinter import Tk
 import tkinter as tk
 from ui import setup_main_ui
 from services.db import init_db
 
 if __name__ == "__main__":
-    # Ensure private folder exists
-    if not os.path.exists(PRIVATE_DIR):
-        os.makedirs(PRIVATE_DIR)
-    # Ensure settings.json exists
-    if not os.path.exists(SETTINGS_FILE):
-        with open(SETTINGS_FILE, "w", encoding="utf-8") as f:
-            f.write("{}")
-    # Ensure column_widths.json exists
-    if not os.path.exists(COLUMN_WIDTHS_FILE):
-        with open(COLUMN_WIDTHS_FILE, "w", encoding="utf-8") as f:
-            f.write("{}")
+    # Setup default files from templates
+    setup_default_files()
     # Ensure contacts.db exists (init_db should handle creation, but double-check)
     if not os.path.exists(DB_FILE):
         init_db()

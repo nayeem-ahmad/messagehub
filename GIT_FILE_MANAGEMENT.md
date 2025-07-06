@@ -22,6 +22,7 @@
 ### Templates and Tools
 - `create_icon.py` - Icon creation script (template)
 - `version_manager.ps1` - Version management utility
+- `template/` - Template files for installer (safe defaults)
 - `.gitignore` - Git ignore rules
 
 ## Files IGNORED (Not Tracked) ❌
@@ -44,8 +45,20 @@
 - `icon.png` - Generated icon image
 
 ### Runtime Data
-- `private/` - User data, settings, databases
+- `private/` - User data, settings, databases (SENSITIVE - excluded)
 - `__pycache__/` - Python bytecode cache
+
+## Template System 🔄
+
+**Template files** (`template/` folder) are **tracked** and **included in installer**:
+- ✅ Safe sample data with no sensitive information
+- ✅ Provides good defaults for new installations  
+- ✅ Auto-copied to `private/` folder on first run if files don't exist
+
+**User data** (`private/` folder) is **ignored** and **excluded from installer**:
+- ❌ Contains sensitive settings and credentials
+- ❌ Personal contact databases and user modifications
+- ❌ Not suitable for distribution
 
 ### Test Files
 - `test_version_management.ps1` - Generated test script
