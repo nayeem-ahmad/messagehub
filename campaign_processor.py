@@ -196,11 +196,24 @@ class CampaignProcessor:
                     break
                     
                 try:
+                    self.logger.info(f"📝 Processing contact {i+1}/{total_contacts}: {name or 'Unknown'} ({email})")
+                    
+                    # Validate email address
+                    if not email or '@' not in email:
+                        self.logger.warning(f"⚠️ Invalid email address for {name}: '{email}'")
+                        failed_count += 1
+                        continue
+                    
                     # Personalize content
+                    self.logger.debug(f"🎨 Personalizing content for {name}")
                     personalized_subject = self._personalize_content(subject, name, email, mobile)
                     personalized_body = self._personalize_content(body, name, email, mobile)
                     
+                    self.logger.debug(f"📧 Personalized subject: '{personalized_subject}'")
+                    self.logger.debug(f"📝 Personalized body length: {len(personalized_body) if personalized_body else 0} chars")
+                    
                     # Send email
+                    self.logger.info(f"📤 Sending email {i+1}/{total_contacts} to {name} ({email})")
                     success = self._send_email(settings, email_method, email, personalized_subject, personalized_body)
                     
                     if success:
@@ -213,15 +226,29 @@ class CampaignProcessor:
                         
                         sent_count += 1
                         progress = int((i + 1) / total_contacts * 100)
-                        self.log_progress(f"✅ {progress}% - Sent to {name or 'Unknown'} ({email}) - {sent_count}/{total_contacts}")
+                        success_msg = f"✅ {progress}% - Sent to {name or 'Unknown'} ({email}) - {sent_count}/{total_contacts}"
+                        self.log_progress(success_msg)
+                        self.logger.info(success_msg)
                     else:
+                        # Record failure
+                        cursor.execute("""
+                            INSERT INTO email_campaign_history 
+                            (campaign_id, contact_id, timestamp, status, error)
+                            VALUES (?, ?, ?, ?, ?)
+                        """, (self.campaign_id, contact_id, datetime.now(), "failed", "Email sending failed"))
+                        
                         failed_count += 1
+                        error_msg = f"❌ Failed to send to {name or 'Unknown'} ({email})"
+                        self.log_progress(error_msg, "error")
+                        self.logger.error(error_msg)
                         
                     # Commit after each email
                     conn.commit()
+                    self.logger.debug(f"💾 Database committed for contact {i+1}")
                     
                     # Delay to avoid spam detection and rate limiting
-                    if self.running:
+                    if self.running and i < total_contacts - 1:  # Don't delay after last email
+                        self.logger.debug(f"⏱️ Waiting 2 seconds before next email...")
                         time.sleep(2)
                         
                 except Exception as e:
@@ -233,7 +260,10 @@ class CampaignProcessor:
                     """, (self.campaign_id, contact_id, datetime.now(), "failed", str(e)))
                     
                     failed_count += 1
-                    self.log_progress(f"❌ Failed to send to {name or 'Unknown'} ({email}): {str(e)}", "error")
+                    error_msg = f"❌ Failed to send to {name or 'Unknown'} ({email}): {str(e)}"
+                    self.log_progress(error_msg, "error")
+                    self.logger.error(error_msg)
+                    self.logger.debug(f"💥 Exception details for {email}:", exc_info=True)
                     conn.commit()
             
             # Final status
@@ -275,44 +305,104 @@ class CampaignProcessor:
         return personalized
     
     def _send_email(self, settings, method, recipient, subject, body):
-        """Send individual email with error handling"""
+        """Send individual email with detailed error handling and logging"""
+        self.logger.info(f"📤 Attempting to send email via {method} to {recipient}")
+        self.logger.debug(f"📋 Email details - Subject: '{subject}', Body length: {len(body) if body else 0} chars")
+        
         try:
+            # Log configuration details (without sensitive info)
             if method == "SMTP":
+                smtp_server = settings.get('smtp_server')
+                smtp_port = settings.get('smtp_port', 587)
+                sender_email = settings.get('sender_email')
+                sender_name = settings.get('sender_name', '')
+                
+                self.logger.info(f"🔧 SMTP Config - Server: {smtp_server}:{smtp_port}, From: {sender_email}")
+                
+                # Validate required settings
+                if not smtp_server:
+                    raise ValueError("SMTP server not configured")
+                if not sender_email:
+                    raise ValueError("Sender email not configured")
+                if not settings.get('sender_pwd'):
+                    raise ValueError("Sender password not configured")
+                
+                self.logger.debug(f"✅ SMTP settings validated")
+                
                 # Use the simplified SMTP function for better error handling
                 email_utils.send_email_smtp_simple(
-                    settings.get('smtp_server'),
-                    settings.get('smtp_port', 587),
-                    settings.get('sender_email'),
+                    smtp_server,
+                    smtp_port,
+                    sender_email,
                     settings.get('sender_pwd'),
                     recipient,
                     subject,
                     body,
-                    settings.get('sender_name', '')
+                    sender_name
                 )
+                self.logger.info(f"✅ Email sent successfully via SMTP to {recipient}")
+                
             elif method == "SendGrid":
+                api_key = settings.get('sendgrid_api_key')
+                sender_email = settings.get('sender_email')
+                sender_name = settings.get('sender_name', '')
+                
+                self.logger.info(f"🔧 SendGrid Config - From: {sender_email}")
+                
+                if not api_key:
+                    raise ValueError("SendGrid API key not configured")
+                if not sender_email:
+                    raise ValueError("Sender email not configured")
+                
+                self.logger.debug(f"✅ SendGrid settings validated")
+                
                 email_utils.send_email_sendgrid(
-                    settings.get('sendgrid_api_key'),
-                    settings.get('sender_email'),
+                    api_key,
+                    sender_email,
                     recipient,
                     subject,
                     body,
-                    settings.get('sender_name', '')
+                    sender_name
                 )
+                self.logger.info(f"✅ Email sent successfully via SendGrid to {recipient}")
+                
             elif method == "Amazon SES":
+                access_key = settings.get('ses_access_key')
+                secret_key = settings.get('ses_secret_key')
+                region = settings.get('ses_region')
+                sender_email = settings.get('sender_email')
+                sender_name = settings.get('sender_name', '')
+                
+                self.logger.info(f"🔧 SES Config - Region: {region}, From: {sender_email}")
+                
+                if not all([access_key, secret_key, region]):
+                    raise ValueError("Amazon SES credentials not fully configured")
+                if not sender_email:
+                    raise ValueError("Sender email not configured")
+                
+                self.logger.debug(f"✅ SES settings validated")
+                
                 email_utils.send_email_ses(
-                    settings.get('ses_access_key'),
-                    settings.get('ses_secret_key'),
-                    settings.get('ses_region'),
-                    settings.get('sender_email'),
+                    access_key,
+                    secret_key,
+                    region,
+                    sender_email,
                     recipient,
                     subject,
                     body,
-                    settings.get('sender_name', '')
+                    sender_name
                 )
+                self.logger.info(f"✅ Email sent successfully via SES to {recipient}")
+                
+            else:
+                raise ValueError(f"Unknown email method: {method}")
+            
             return True
             
         except Exception as e:
-            self.logger.error(f"Email sending failed: {e}")
+            error_msg = f"❌ Email sending failed to {recipient} via {method}: {str(e)}"
+            self.logger.error(error_msg)
+            self.logger.debug(f"💥 Full error details:", exc_info=True)
             return False
     
     def process_sms_campaign(self):
